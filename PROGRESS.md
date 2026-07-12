@@ -65,8 +65,11 @@ via Testcontainers): [Actions history](https://github.com/Jainoir/Uncomplex/acti
 - [x] **Anthropic API key** — created; live generation verified end-to-end on July 12, 2026
       (real Claude roadmap in ~31 s, repeat request served from cache in ~0.02 s).
       Key lives only in the environment, never in the repo.
-- [ ] **Deploy backend** — Railway/Render from the GitHub repo (Dockerfile is ready) +
-      managed PostgreSQL; gives a live URL for the résumé
+- [x] **Deploy backend** — live at https://uncomplex-api.onrender.com (Render Blueprint:
+      Docker web service + managed PostgreSQL). Verified July 12, 2026: health UP, real
+      Claude generation, public share links, cache hits in production. Note: free tier
+      sleeps after idle (~1 min wake) and the free database has an expiry date — check
+      the Render dashboard before application deadlines.
 - [ ] **Deploy frontend** — Vercel from `frontend/`, with `VITE_API_BASE_URL` pointing at
       the deployed API and `CORS_ALLOWED_ORIGINS` set on the backend
 - [ ] **GitHub polish** — repo About description + topics

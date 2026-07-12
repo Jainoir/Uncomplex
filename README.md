@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/Jainoir/Uncomplex/actions/workflows/ci.yml/badge.svg)](https://github.com/Jainoir/Uncomplex/actions/workflows/ci.yml)
 
+**Live API:** [uncomplex-api.onrender.com](https://uncomplex-api.onrender.com/actuator/health) *(free tier — first request after idle takes ~1 min to wake)*
+
 **Enter anything you want to learn — Uncomplex builds a credible, shareable roadmap of everything you should understand *first*.**
 
 Most learning tools answer *"how do I learn X?"*. Uncomplex answers the question that actually blocks people: *"why doesn't X make sense to me yet?"* — which is almost always missing prerequisites. You give it a topic, your experience level, and your goal; it returns an ordered checklist of the 4–8 concepts to learn before the topic itself, each with a short explanation, why it matters, a time estimate, and links from credible sources only.
