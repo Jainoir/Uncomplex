@@ -52,11 +52,25 @@ Run the tests: `./mvnw verify` (the PostgreSQL/Testcontainers test is skipped au
 
 ## API
 
+**Public — no account needed:**
+
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/api/roadmaps` | Generate (or serve cached) roadmap. Rate limited. |
-| `GET` | `/api/roadmaps/public/{shareToken}` | Open a shared roadmap. Public, never rate limited. |
+| `POST` | `/api/roadmaps` | Generate (or serve cached) roadmap. Rate limited. With a JWT, the result is also saved to your library. |
+| `GET` | `/api/roadmaps/public/{shareToken}` | Open a shared roadmap. Never rate limited. |
+| `POST` | `/api/auth/register` | Create an account (email + password ≥ 8 chars). |
+| `POST` | `/api/auth/login` | Get a JWT access token. |
 | `GET` | `/actuator/health` | Health probe. |
+
+**Authenticated — `Authorization: Bearer <token>`:**
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/me/roadmaps` | My library, with per-roadmap progress counts. |
+| `POST` | `/api/me/roadmaps` | Save any shared roadmap (`{"shareToken": "..."}`) to my library. |
+| `GET` | `/api/me/roadmaps/{id}` | One roadmap + my progress overlay (completed node ids, percent). |
+| `PUT` | `/api/me/roadmaps/{id}/nodes/{nodeId}/progress` | Mark a node `{"completed": true/false}`. Idempotent. |
+| `DELETE` | `/api/me/roadmaps/{id}` | Remove from my library (the shared roadmap survives for others). |
 
 `experienceLevel`: `BEGINNER` `INTERMEDIATE` `ADVANCED` — `goal`: `GENERAL_UNDERSTANDING` `BUILD_A_PROJECT` `SYSTEM_DESIGN_INTERVIEW` `JOB_INTERVIEW` `UNIVERSITY_COURSE`
 
@@ -71,8 +85,11 @@ com.uncomplex
 ├── roadmap      controller / service / repository / entity / dto / mapper
 ├── ai           provider-agnostic generation + output validation
 ├── resource     resource credibility (URL allowlist)
+├── auth         register/login, JWT issuing (Spring Security resource server)
+├── user         account entity + repository
+├── library      saved roadmaps + per-node progress (the "ownership" model)
 ├── ratelimit    Bucket4j servlet filter
-├── config       typed @ConfigurationProperties + AI provider wiring
+├── config       typed @ConfigurationProperties, security filter chain, AI wiring
 └── exception    RFC 9457 problem-detail handling
 ```
 
@@ -86,7 +103,9 @@ com.uncomplex
 
 **One AI call per (topic, level, goal) — ever.** Requests are normalized into a cache key (`rate-limiting|beginner|system_design_interview`) with a unique DB constraint. Repeat requests and shared-link opens are pure reads. A race between concurrent first requests is resolved by the constraint, not by locks.
 
-**Anonymous by design (milestone 1).** The unguessable share token *is* the access control, which makes the product fully usable with zero accounts. JWT auth + owned roadmaps + progress tracking are milestone 2 — deliberately cut so milestone 1 ships finished.
+**Anonymous-first, accounts optional.** The unguessable share token *is* the access control for reading, so the product works with zero accounts. Accounts (JWT, stateless HS256 via Spring Security's resource-server support, BCrypt passwords) add a *library*: which roadmaps you follow and which nodes you've completed.
+
+**Users own membership and progress — never the roadmap.** Because roadmaps are cached and shared across users, `PATCH /api/roadmaps/{id}` would let one user edit what another is reading. So shared roadmaps are immutable; ownership is modeled as a `saved_roadmap` join row plus per-user `node_progress` rows. Deleting "your" roadmap removes it from your library without touching anyone else's. Login failures return the same 401 for unknown email and wrong password (no account enumeration).
 
 **Provider-agnostic AI port.** `AiRoadmapGenerator` is an interface; the Anthropic implementation is selected by configuration, and a deterministic mock keeps the app runnable and testable with no API key and no network.
 
@@ -110,11 +129,14 @@ com.uncomplex
 | `ANTHROPIC_API_KEY` | — | Required when `AI_PROVIDER=anthropic` |
 | `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | localhost Postgres | Database connection |
 | `GENERATIONS_PER_DAY` | `10` | Per-client generation limit |
+| `JWT_SECRET` | dev-only default | HS256 signing key (≥ 32 bytes). **Set this in every deployed environment.** |
+| `TOKEN_TTL_MINUTES` | `60` | Access-token lifetime |
 
 The credible-domain allowlist lives in `application.yml` under `app.credibility.allowed-domains`.
 
 ## Roadmap (the product's own)
 
-- **Milestone 2** — JWT authentication, owned roadmaps (`GET/PATCH/DELETE /api/roadmaps/{id}`), per-node progress tracking
-- **Milestone 3** — React/TypeScript frontend, resource link liveness checking (scheduled `HEAD` probes), Redis-backed rate limiting
+- ~~**Milestone 1** — anonymous generate / persist / share~~ ✅
+- ~~**Milestone 2** — JWT authentication, saved-roadmap library, per-node progress tracking~~ ✅
+- **Milestone 3** — React/TypeScript frontend, resource link liveness checking (scheduled `HEAD` probes), Redis-backed rate limiting, refresh tokens
 - **Later** — per-node regeneration, FR/EN bilingual content, dependency graph view

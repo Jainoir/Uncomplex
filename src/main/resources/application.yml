@@ -33,6 +33,11 @@ app:
     max-attempts: 2
   rate-limit:
     generations-per-day: ${GENERATIONS_PER_DAY:10}
+  security:
+    # HS256 secret, minimum 32 bytes. The default is for local development only —
+    # always set JWT_SECRET in any deployed environment.
+    jwt-secret: ${JWT_SECRET:local-dev-only-secret-0123456789abcdefghij}
+    token-ttl-minutes: ${TOKEN_TTL_MINUTES:60}
   credibility:
     allowed-domains:
       - developer.mozilla.org

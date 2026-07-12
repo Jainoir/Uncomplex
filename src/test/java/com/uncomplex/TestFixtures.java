@@ -20,7 +20,8 @@ public final class TestFixtures {
                 new AppProperties.Ai("mock", new AppProperties.Ai.Anthropic("", "claude-opus-4-8", 16000L)),
                 new AppProperties.Generation(4, 8, 2, 2),
                 new AppProperties.RateLimit(10),
-                new AppProperties.Credibility(List.of("developer.mozilla.org", "spring.io", "docs.spring.io")));
+                new AppProperties.Credibility(List.of("developer.mozilla.org", "spring.io", "docs.spring.io")),
+                new AppProperties.Security("test-secret-0123456789abcdefghijklmnop", 60));
     }
 
     public static RoadmapDraft draftWithPrerequisites(int count) {

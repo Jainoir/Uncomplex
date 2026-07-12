@@ -9,8 +9,12 @@ public record AppProperties(
         Ai ai,
         Generation generation,
         RateLimit rateLimit,
-        Credibility credibility
+        Credibility credibility,
+        Security security
 ) {
+
+    public record Security(String jwtSecret, long tokenTtlMinutes) {
+    }
 
     public record Ai(String provider, Anthropic anthropic) {
         public record Anthropic(String apiKey, String model, long maxOutputTokens) {

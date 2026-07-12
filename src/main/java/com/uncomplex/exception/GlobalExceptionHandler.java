@@ -41,6 +41,16 @@ public class GlobalExceptionHandler {
         return problem(HttpStatus.NOT_FOUND, "Not found", e.getMessage());
     }
 
+    @ExceptionHandler(ConflictException.class)
+    public ProblemDetail handleConflict(ConflictException e) {
+        return problem(HttpStatus.CONFLICT, "Conflict", e.getMessage());
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ProblemDetail handleInvalidCredentials(InvalidCredentialsException e) {
+        return problem(HttpStatus.UNAUTHORIZED, "Unauthorized", e.getMessage());
+    }
+
     @ExceptionHandler({AiGenerationException.class, InvalidDraftException.class})
     public ProblemDetail handleGenerationFailure(RuntimeException e) {
         log.error("Roadmap generation failed", e);
