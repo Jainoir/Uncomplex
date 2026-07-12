@@ -70,8 +70,10 @@ via Testcontainers): [Actions history](https://github.com/Jainoir/Uncomplex/acti
       Claude generation, public share links, cache hits in production. Note: free tier
       sleeps after idle (~1 min wake) and the free database has an expiry date — check
       the Render dashboard before application deadlines.
-- [ ] **Deploy frontend** — Vercel from `frontend/`, with `VITE_API_BASE_URL` pointing at
-      the deployed API and `CORS_ALLOWED_ORIGINS` set on the backend
+- [x] **Deploy frontend** — live at https://uncomplex.vercel.app (Vercel, root `frontend/`,
+      `VITE_API_BASE_URL` → the Render API, SPA rewrites for share links). CORS verified
+      July 12, 2026: cross-origin generation from the Vercel origin returns 201 with the
+      correct Access-Control-Allow-Origin header.
 - [ ] **GitHub polish** — repo About description + topics
       (`spring-boot`, `java-21`, `react`, `anthropic`, `postgresql`, `redis`)
 - [ ] **Résumé update** — suggested line below

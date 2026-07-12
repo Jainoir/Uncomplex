@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Jainoir/Uncomplex/actions/workflows/ci.yml/badge.svg)](https://github.com/Jainoir/Uncomplex/actions/workflows/ci.yml)
 
-**Live API:** [uncomplex-api.onrender.com](https://uncomplex-api.onrender.com/actuator/health) *(free tier — first request after idle takes ~1 min to wake)*
+**Live app:** [uncomplex.vercel.app](https://uncomplex.vercel.app) · **API:** [uncomplex-api.onrender.com](https://uncomplex-api.onrender.com/actuator/health) *(free tier — first request after idle takes ~1 min to wake)*
 
 **Enter anything you want to learn — Uncomplex builds a credible, shareable roadmap of everything you should understand *first*.**
 
