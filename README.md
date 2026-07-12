@@ -1,5 +1,7 @@
 # Uncomplex
 
+[![CI](https://github.com/Jainoir/Uncomplex/actions/workflows/ci.yml/badge.svg)](https://github.com/Jainoir/Uncomplex/actions/workflows/ci.yml)
+
 **Enter anything you want to learn — Uncomplex builds a credible, shareable roadmap of everything you should understand *first*.**
 
 Most learning tools answer *"how do I learn X?"*. Uncomplex answers the question that actually blocks people: *"why doesn't X make sense to me yet?"* — which is almost always missing prerequisites. You give it a topic, your experience level, and your goal; it returns an ordered checklist of the 4–8 concepts to learn before the topic itself, each with a short explanation, why it matters, a time estimate, and links from credible sources only.
@@ -19,7 +21,9 @@ Every roadmap gets a public share link (`/api/roadmaps/public/rate-limiting-k7p4
 
 ## Tech stack
 
-Java 21 · Spring Boot 3.5 · Spring Data JPA / Hibernate · PostgreSQL + Flyway · Anthropic Claude API (structured outputs) · Bucket4j rate limiting · JUnit 5 + Mockito + Testcontainers · Docker · GitHub Actions
+**Backend:** Java 21 · Spring Boot 3.5 · Spring Data JPA / Hibernate · PostgreSQL + Flyway · Redis · Anthropic Claude API (structured outputs) · Bucket4j rate limiting · JUnit 5 + Mockito + Testcontainers · Docker · GitHub Actions
+
+**Frontend:** React 19 · TypeScript · Vite · React Router (in [`frontend/`](frontend/))
 
 ## Quick start
 
@@ -48,7 +52,13 @@ curl -X POST http://localhost:8080/api/roadmaps \
 curl http://localhost:8080/api/roadmaps/public/rate-limiting-k7p4x
 ```
 
-Run the tests: `./mvnw verify` (the PostgreSQL/Testcontainers test is skipped automatically when Docker is absent and runs in CI).
+Run the tests: `./mvnw verify` (the PostgreSQL and Redis Testcontainers tests are skipped automatically when Docker is absent and run in CI).
+
+**Frontend** (dev server proxies `/api` to the backend on :8080):
+
+```bash
+cd frontend && npm install && npm run dev   # http://localhost:5173
+```
 
 ## API
 
@@ -148,5 +158,5 @@ The credible-domain allowlist lives in `application.yml` under `app.credibility.
 - ~~**Milestone 1** — anonymous generate / persist / share~~ ✅
 - ~~**Milestone 2** — JWT authentication, saved-roadmap library, per-node progress tracking~~ ✅
 - ~~**Milestone 3** — refresh token rotation with reuse detection, Redis-backed rate limiting, scheduled link liveness checking~~ ✅
-- **Milestone 4** — React/TypeScript frontend
-- **Later** — per-node regeneration, FR/EN bilingual content, dependency graph view
+- ~~**Milestone 4** — React/TypeScript frontend (landing, roadmap + progress, shared view, auth, library)~~ ✅
+- **Later** — deployment, per-node regeneration, FR/EN bilingual content, dependency graph view

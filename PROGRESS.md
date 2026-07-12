@@ -1,8 +1,8 @@
 # Uncomplex — Progress Tracker
 
-Status as of **July 12, 2026**. Backend milestones 1–3 are complete, with every
-commit verified by CI (including PostgreSQL and Redis integration tests via
-Testcontainers): [Actions history](https://github.com/Jainoir/Uncomplex/actions).
+Status as of **July 12, 2026**. Milestones 1–4 are complete (backend + frontend),
+with every commit verified by CI (including PostgreSQL and Redis integration tests
+via Testcontainers): [Actions history](https://github.com/Jainoir/Uncomplex/actions).
 
 ## ✅ Milestone 1 — Anonymous generate / persist / share
 
@@ -43,27 +43,45 @@ Testcontainers): [Actions history](https://github.com/Jainoir/Uncomplex/actions)
       surfaced in the API
 - [x] Redis service in docker-compose; optional Redis health indicator
 
+## ✅ Milestone 4 — Frontend
+
+- [x] React 19 + TypeScript + Vite app in `frontend/` (dev server proxies `/api` to :8080)
+- [x] Landing page: topic + level + goal → generate → navigate to the roadmap
+- [x] Roadmap / shared-link view (`/r/{shareToken}`): expandable prerequisite cards with
+      explanations, "why first", resources with credibility labels and dead-link warnings,
+      copy-share-link button
+- [x] Auth (login / register) with JWT storage and automatic refresh-token rotation on 401
+- [x] Library page: saved roadmaps with progress bars, remove; "save to my library" on
+      shared roadmaps; per-node completion checkboxes with live progress updates
+- [x] Backend CORS config for a separately-hosted frontend (`CORS_ALLOWED_ORIGINS`)
+- [x] Frontend job in CI (npm ci + typecheck + production build)
+- [x] CI badge in README
+- [x] Verified end-to-end locally: production build clean, dev proxy → live API smoke-tested
+
 ## 🔲 What's left
 
-### Needs my accounts / a decision (Claude can't do these alone)
+### Needs my accounts (Claude can't do these alone)
 
 - [ ] **Anthropic API key** — create at console.anthropic.com, then run with
       `AI_PROVIDER=anthropic` + `ANTHROPIC_API_KEY` to replace the mock generator
-- [ ] **Deploy** — Railway/Render from the GitHub repo (Dockerfile is ready) + managed
-      PostgreSQL; gives a live URL for the résumé
+- [ ] **Deploy backend** — Railway/Render from the GitHub repo (Dockerfile is ready) +
+      managed PostgreSQL; gives a live URL for the résumé
+- [ ] **Deploy frontend** — Vercel from `frontend/`, with `VITE_API_BASE_URL` pointing at
+      the deployed API and `CORS_ALLOWED_ORIGINS` set on the backend
 - [ ] **GitHub polish** — repo About description + topics
-      (`spring-boot`, `java-21`, `anthropic`, `postgresql`, `redis`)
+      (`spring-boot`, `java-21`, `react`, `anthropic`, `postgresql`, `redis`)
+- [ ] **Résumé update** — suggested line below
 
-### Milestone 4 — Frontend (optional for a backend application)
-
-- [ ] React/TypeScript app: landing page, roadmap view, shared-link view
-- [ ] Auth state + progress interactions against the existing API
-- [ ] Deploy (Vercel)
+> Built Uncomplex, a full-stack learning-roadmap platform (Spring Boot 3.5 / Java 21,
+> React + TypeScript) that uses the Anthropic API with schema-constrained structured
+> outputs to generate prerequisite learning paths with validated, credibility-filtered
+> resources; features JWT auth with refresh-token rotation and reuse detection,
+> PostgreSQL/Flyway persistence, Redis-backed distributed rate limiting, public sharing,
+> per-user progress tracking, scheduled link liveness checks, 45+ unit/integration tests
+> with Testcontainers, and Dockerized CI/CD.
 
 ### Later / nice-to-have
 
-- [ ] CI badge in README
 - [ ] Per-node "give me a different resource" regeneration
 - [ ] FR/EN bilingual content (relevant for Desjardins)
 - [ ] Dependency graph view
-- [ ] Résumé line update: add refresh-token rotation + Redis rate limiting
