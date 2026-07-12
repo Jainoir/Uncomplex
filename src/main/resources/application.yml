@@ -1,0 +1,59 @@
+spring:
+  application:
+    name: uncomplex
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/uncomplex}
+    username: ${DB_USERNAME:uncomplex}
+    password: ${DB_PASSWORD:uncomplex}
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+  flyway:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+app:
+  ai:
+    # "mock" runs without any API key; set to "anthropic" (plus ANTHROPIC_API_KEY) for real generation
+    provider: ${AI_PROVIDER:mock}
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY:}
+      model: claude-opus-4-8
+      max-output-tokens: 16000
+  generation:
+    min-prerequisites: 4
+    max-prerequisites: 8
+    max-resources-per-prerequisite: 2
+    max-attempts: 2
+  rate-limit:
+    generations-per-day: ${GENERATIONS_PER_DAY:10}
+  credibility:
+    allowed-domains:
+      - developer.mozilla.org
+      - docs.oracle.com
+      - dev.java
+      - spring.io
+      - docs.spring.io
+      - learn.microsoft.com
+      - kubernetes.io
+      - docs.docker.com
+      - docker.com
+      - postgresql.org
+      - redis.io
+      - nginx.org
+      - github.com
+      - aws.amazon.com
+      - cloud.google.com
+      - developers.google.com
+      - web.dev
+      - datatracker.ietf.org
+      - www.rfc-editor.org
+      - owasp.org
+      - martinfowler.com
+      - microservices.io
