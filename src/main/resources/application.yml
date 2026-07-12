@@ -1,8 +1,14 @@
+server:
+  # Render (and most PaaS hosts) inject the listen port via PORT
+  port: ${PORT:8080}
+
 spring:
   application:
     name: uncomplex
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/uncomplex}
+    # Either set DB_URL directly, or let it compose from DB_HOST/DB_PORT/DB_NAME
+    # (Render's Blueprint exposes the database as separate properties)
+    url: ${DB_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:uncomplex}}
     username: ${DB_USERNAME:uncomplex}
     password: ${DB_PASSWORD:uncomplex}
   jpa:

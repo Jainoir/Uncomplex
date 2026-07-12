@@ -1,0 +1,47 @@
+# Render Blueprint: deploys the API (Docker) + managed PostgreSQL in one step.
+# In the Render dashboard: New > Blueprint > select this repo > Apply.
+# You will be prompted once for ANTHROPIC_API_KEY (it is never stored in the repo).
+
+databases:
+  - name: uncomplex-db
+    plan: free
+    databaseName: uncomplex
+    user: uncomplex
+
+services:
+  - type: web
+    name: uncomplex-api
+    runtime: docker
+    plan: free
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: DB_HOST
+        fromDatabase:
+          name: uncomplex-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: uncomplex-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: uncomplex-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: uncomplex-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: uncomplex-db
+          property: password
+      - key: AI_PROVIDER
+        value: anthropic
+      - key: ANTHROPIC_API_KEY
+        sync: false # entered once in the dashboard, never synced from the repo
+      - key: JWT_SECRET
+        generateValue: true # Render generates a strong random value
+      - key: GENERATIONS_PER_DAY
+        value: "10"
+      - key: JAVA_TOOL_OPTIONS
+        value: -XX:MaxRAMPercentage=75 # play nice with the free tier's 512 MB
