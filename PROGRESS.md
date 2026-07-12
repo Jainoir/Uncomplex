@@ -62,8 +62,9 @@ via Testcontainers): [Actions history](https://github.com/Jainoir/Uncomplex/acti
 
 ### Needs my accounts (Claude can't do these alone)
 
-- [ ] **Anthropic API key** — create at console.anthropic.com, then run with
-      `AI_PROVIDER=anthropic` + `ANTHROPIC_API_KEY` to replace the mock generator
+- [x] **Anthropic API key** — created; live generation verified end-to-end on July 12, 2026
+      (real Claude roadmap in ~31 s, repeat request served from cache in ~0.02 s).
+      Key lives only in the environment, never in the repo.
 - [ ] **Deploy backend** — Railway/Render from the GitHub repo (Dockerfile is ready) +
       managed PostgreSQL; gives a live URL for the résumé
 - [ ] **Deploy frontend** — Vercel from `frontend/`, with `VITE_API_BASE_URL` pointing at
