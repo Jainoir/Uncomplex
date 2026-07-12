@@ -59,7 +59,9 @@ Run the tests: `./mvnw verify` (the PostgreSQL/Testcontainers test is skipped au
 | `POST` | `/api/roadmaps` | Generate (or serve cached) roadmap. Rate limited. With a JWT, the result is also saved to your library. |
 | `GET` | `/api/roadmaps/public/{shareToken}` | Open a shared roadmap. Never rate limited. |
 | `POST` | `/api/auth/register` | Create an account (email + password ≥ 8 chars). |
-| `POST` | `/api/auth/login` | Get a JWT access token. |
+| `POST` | `/api/auth/login` | Get an access token + refresh token. |
+| `POST` | `/api/auth/refresh` | Rotate: exchange a refresh token for a fresh pair. |
+| `POST` | `/api/auth/logout` | Revoke a refresh token. |
 | `GET` | `/actuator/health` | Health probe. |
 
 **Authenticated — `Authorization: Bearer <token>`:**
@@ -111,7 +113,11 @@ com.uncomplex
 
 **Why not microservices/Kafka/Kubernetes?** One team, one database, one deployable. The module boundaries keep extraction possible; the operational cost of distribution buys nothing at this scale.
 
-**In-memory rate limiting** (Bucket4j, per client IP, 10 generations/day) is a documented single-instance trade-off — the filter is one class swap away from a Redis-backed bucket store for multi-replica deployments.
+**Rate limiting is pluggable** (`app.rate-limit.store`): an in-memory Bucket4j token bucket for single-instance deployments (default), or a Redis fixed-window counter (atomic `INCR` + first-write `EXPIRE`) shared across replicas — docker-compose runs the Redis mode. The trade-off is documented in the code: the fixed window permits a brief boundary burst but keeps the hot path to one round trip with no Lua scripting.
+
+**Refresh tokens rotate, and reuse is treated as theft.** Login returns a short-lived JWT plus an opaque refresh token (only its SHA-256 hash is stored). Every `/api/auth/refresh` revokes the presented token and issues a new pair; presenting an already-rotated token is a replay signal, so *all* of that user's sessions are revoked.
+
+**Dead links get caught after the fact.** The credibility allowlist filters URLs at generation time; a nightly scheduled job (`HEAD` probe, `GET` fallback for servers that reject `HEAD`) marks resources `reachable: true/false` in the API so a link that dies later is flagged instead of silently served.
 
 ## Testing strategy
 
@@ -131,6 +137,9 @@ com.uncomplex
 | `GENERATIONS_PER_DAY` | `10` | Per-client generation limit |
 | `JWT_SECRET` | dev-only default | HS256 signing key (≥ 32 bytes). **Set this in every deployed environment.** |
 | `TOKEN_TTL_MINUTES` | `60` | Access-token lifetime |
+| `REFRESH_TOKEN_TTL_DAYS` | `30` | Refresh-token lifetime |
+| `RATE_LIMIT_STORE` | `memory` | `redis` for multi-replica deployments (uses `SPRING_DATA_REDIS_HOST`/`_PORT`) |
+| `LINK_HEALTH_ENABLED` | `true` | Nightly resource-link liveness probing |
 
 The credible-domain allowlist lives in `application.yml` under `app.credibility.allowed-domains`.
 
@@ -138,5 +147,6 @@ The credible-domain allowlist lives in `application.yml` under `app.credibility.
 
 - ~~**Milestone 1** — anonymous generate / persist / share~~ ✅
 - ~~**Milestone 2** — JWT authentication, saved-roadmap library, per-node progress tracking~~ ✅
-- **Milestone 3** — React/TypeScript frontend, resource link liveness checking (scheduled `HEAD` probes), Redis-backed rate limiting, refresh tokens
+- ~~**Milestone 3** — refresh token rotation with reuse detection, Redis-backed rate limiting, scheduled link liveness checking~~ ✅
+- **Milestone 4** — React/TypeScript frontend
 - **Later** — per-node regeneration, FR/EN bilingual content, dependency graph view

@@ -53,6 +53,7 @@ public class RoadmapMapper {
                 resource.getTitle(),
                 resource.getUrl(),
                 resource.getSourceType(),
-                resource.getCredibilityReason());
+                resource.getCredibilityReason(),
+                resource.getReachable());
     }
 }

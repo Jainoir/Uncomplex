@@ -38,7 +38,8 @@ public record RoadmapResponse(
             String title,
             String url,
             SourceType sourceType,
-            String credibilityReason
+            String credibilityReason,
+            Boolean reachable // null until the scheduled link health check first probes it
     ) {
     }
 }

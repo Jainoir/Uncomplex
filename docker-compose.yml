@@ -15,10 +15,22 @@ services:
       timeout: 3s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   api:
     build: .
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     environment:
       DB_URL: jdbc:postgresql://db:5432/uncomplex
@@ -26,6 +38,10 @@ services:
       DB_PASSWORD: uncomplex
       AI_PROVIDER: ${AI_PROVIDER:-mock}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      RATE_LIMIT_STORE: redis
+      REDIS_HEALTH_ENABLED: "true"
+      SPRING_DATA_REDIS_HOST: redis
+      JWT_SECRET: ${JWT_SECRET:-compose-dev-secret-0123456789abcdefghij}
     ports:
       - "8080:8080"
 

@@ -31,4 +31,15 @@ public class AuthController {
     public AuthResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request.email(), request.password());
     }
+
+    @PostMapping("/refresh")
+    public AuthResponse refresh(@Valid @RequestBody com.uncomplex.auth.dto.RefreshRequest request) {
+        return authService.refresh(request.refreshToken());
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@Valid @RequestBody com.uncomplex.auth.dto.RefreshRequest request) {
+        authService.logout(request.refreshToken());
+        return ResponseEntity.noContent().build();
+    }
 }

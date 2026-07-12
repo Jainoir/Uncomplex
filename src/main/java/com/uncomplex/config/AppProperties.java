@@ -13,7 +13,7 @@ public record AppProperties(
         Security security
 ) {
 
-    public record Security(String jwtSecret, long tokenTtlMinutes) {
+    public record Security(String jwtSecret, long tokenTtlMinutes, long refreshTokenTtlDays) {
     }
 
     public record Ai(String provider, Anthropic anthropic) {
@@ -29,7 +29,7 @@ public record AppProperties(
     ) {
     }
 
-    public record RateLimit(long generationsPerDay) {
+    public record RateLimit(long generationsPerDay, String store) {
     }
 
     public record Credibility(List<String> allowedDomains) {

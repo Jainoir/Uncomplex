@@ -1,9 +1,5 @@
 package com.uncomplex.ratelimit;
 
-import com.uncomplex.config.AppProperties;
-import io.github.bucket4j.Bandwidth;
-import io.github.bucket4j.Bucket;
-import io.github.bucket4j.ConsumptionProbe;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -15,25 +11,20 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.time.Duration;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Per-client rate limit on the expensive generation endpoint. In-memory buckets are
- * sufficient for a single instance; swap the map for a Redis-backed Bucket4j store
- * when running multiple replicas (documented trade-off, see README).
+ * Applies the configured {@link RateLimiter} to the expensive generation endpoint.
+ * Reads (shared links, library) are never limited.
  */
 @Component
 public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final String GENERATION_PATH = "/api/roadmaps";
 
-    private final long generationsPerDay;
-    private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
+    private final RateLimiter rateLimiter;
 
-    public RateLimitFilter(AppProperties properties) {
-        this.generationsPerDay = properties.rateLimit().generationsPerDay();
+    public RateLimitFilter(RateLimiter rateLimiter) {
+        this.rateLimiter = rateLimiter;
     }
 
     @Override
@@ -45,30 +36,20 @@ public class RateLimitFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        Bucket bucket = buckets.computeIfAbsent(clientKey(request), key -> newBucket());
-        ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
+        RateLimiter.Decision decision = rateLimiter.tryConsume(clientKey(request));
 
-        if (probe.isConsumed()) {
-            response.setHeader("X-RateLimit-Remaining", String.valueOf(probe.getRemainingTokens()));
+        if (decision.allowed()) {
+            response.setHeader("X-RateLimit-Remaining", String.valueOf(decision.remaining()));
             filterChain.doFilter(request, response);
             return;
         }
 
-        long retryAfterSeconds = Duration.ofNanos(probe.getNanosToWaitForRefill()).toSeconds();
         response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
-        response.setHeader("Retry-After", String.valueOf(retryAfterSeconds));
+        response.setHeader("Retry-After", String.valueOf(decision.retryAfterSeconds()));
         response.getWriter().write("""
                 {"type":"about:blank","title":"Too many requests","status":429,\
                 "detail":"Daily roadmap generation limit reached. Try again later."}""");
-    }
-
-    private Bucket newBucket() {
-        Bandwidth limit = Bandwidth.builder()
-                .capacity(generationsPerDay)
-                .refillIntervally(generationsPerDay, Duration.ofDays(1))
-                .build();
-        return Bucket.builder().addLimit(limit).build();
     }
 
     private String clientKey(HttpServletRequest request) {

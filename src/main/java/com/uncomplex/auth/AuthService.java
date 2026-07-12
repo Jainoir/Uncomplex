@@ -17,11 +17,14 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final RefreshTokenService refreshTokenService;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
+                       JwtService jwtService, RefreshTokenService refreshTokenService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.refreshTokenService = refreshTokenService;
     }
 
     @Transactional
@@ -34,7 +37,7 @@ public class AuthService {
         return toResponse(user);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public AuthResponse login(String email, String rawPassword) {
         String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
         AppUser user = userRepository.findByEmail(normalizedEmail)
@@ -46,8 +49,27 @@ public class AuthService {
         return toResponse(user);
     }
 
+    /**
+     * Exchanges a valid refresh token for a fresh access + refresh token pair (rotation).
+     * noRollbackFor must match rotate(): both interceptors share one physical
+     * transaction, and either one marking rollback-only would undo the
+     * revoke-all-sessions response to token reuse.
+     */
+    @Transactional(noRollbackFor = com.uncomplex.exception.InvalidCredentialsException.class)
+    public AuthResponse refresh(String rawRefreshToken) {
+        AppUser user = refreshTokenService.rotate(rawRefreshToken);
+        return toResponse(user);
+    }
+
+    @Transactional
+    public void logout(String rawRefreshToken) {
+        refreshTokenService.revoke(rawRefreshToken);
+    }
+
     private AuthResponse toResponse(AppUser user) {
-        JwtService.IssuedToken issued = jwtService.issueFor(user);
-        return new AuthResponse(issued.token(), issued.expiresAt(), user.getEmail());
+        JwtService.IssuedToken access = jwtService.issueFor(user);
+        RefreshTokenService.Issued refresh = refreshTokenService.issue(user);
+        return new AuthResponse(access.token(), access.expiresAt(),
+                refresh.rawToken(), refresh.expiresAt(), user.getEmail());
     }
 }

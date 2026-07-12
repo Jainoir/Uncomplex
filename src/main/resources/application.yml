@@ -17,6 +17,11 @@ management:
     web:
       exposure:
         include: health,info,metrics
+  health:
+    redis:
+      # Redis is optional (only used when app.rate-limit.store=redis); don't fail
+      # the health probe when it isn't part of the deployment.
+      enabled: ${REDIS_HEALTH_ENABLED:false}
 
 app:
   ai:
@@ -33,11 +38,17 @@ app:
     max-attempts: 2
   rate-limit:
     generations-per-day: ${GENERATIONS_PER_DAY:10}
+    # "memory" (single instance) or "redis" (shared across replicas)
+    store: ${RATE_LIMIT_STORE:memory}
+  link-health:
+    enabled: ${LINK_HEALTH_ENABLED:true}
+    cron: "0 0 4 * * *"
   security:
     # HS256 secret, minimum 32 bytes. The default is for local development only —
     # always set JWT_SECRET in any deployed environment.
     jwt-secret: ${JWT_SECRET:local-dev-only-secret-0123456789abcdefghij}
     token-ttl-minutes: ${TOKEN_TTL_MINUTES:60}
+    refresh-token-ttl-days: ${REFRESH_TOKEN_TTL_DAYS:30}
   credibility:
     allowed-domains:
       - developer.mozilla.org

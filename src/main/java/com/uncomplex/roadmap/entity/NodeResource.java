@@ -38,6 +38,13 @@ public class NodeResource {
     @Column(name = "credibility_reason", nullable = false, length = 500)
     private String credibilityReason;
 
+    /** null = never probed; set by the scheduled link health check. */
+    @Column(name = "reachable")
+    private Boolean reachable;
+
+    @Column(name = "last_checked_at")
+    private java.time.Instant lastCheckedAt;
+
     protected NodeResource() {
     }
 
@@ -70,5 +77,18 @@ public class NodeResource {
 
     public String getCredibilityReason() {
         return credibilityReason;
+    }
+
+    public Boolean getReachable() {
+        return reachable;
+    }
+
+    public java.time.Instant getLastCheckedAt() {
+        return lastCheckedAt;
+    }
+
+    public void recordProbeResult(boolean isReachable) {
+        this.reachable = isReachable;
+        this.lastCheckedAt = java.time.Instant.now();
     }
 }
