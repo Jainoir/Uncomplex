@@ -39,7 +39,10 @@ class PostgresRoadmapIntegrationTest {
         Roadmap generated = service.getOrGenerate("Database indexing",
                 ExperienceLevel.INTERMEDIATE, LearningGoal.JOB_INTERVIEW);
 
-        Roadmap reloaded = repository.findByShareToken(generated.getShareToken()).orElseThrow();
+        // Read back through the service (initializes the lazy graph inside the
+        // transaction) — touching lazy collections on a bare repository result
+        // outside a transaction would throw LazyInitializationException.
+        Roadmap reloaded = service.getByShareToken(generated.getShareToken());
 
         assertThat(reloaded.getId()).isNotNull();
         assertThat(reloaded.getNodes()).hasSize(5);
