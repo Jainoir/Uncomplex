@@ -43,5 +43,7 @@ services:
         generateValue: true # Render generates a strong random value
       - key: GENERATIONS_PER_DAY
         value: "10"
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://uncomplex.vercel.app,http://localhost:5173
       - key: JAVA_TOOL_OPTIONS
         value: -XX:MaxRAMPercentage=75 # play nice with the free tier's 512 MB
