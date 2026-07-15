@@ -1,13 +1,19 @@
-# Uncomplex
+<div align="center">
 
-[![CI](https://github.com/Jainoir/Uncomplex/actions/workflows/ci.yml/badge.svg)](https://github.com/Jainoir/Uncomplex/actions/workflows/ci.yml)
+# Uncomplex
 
 **Enter anything you want to learn — Uncomplex tells you what to understand *first*, in order, with credible resources.**
 
-> 🌐 **Try it live:** [uncomplex.vercel.app](https://uncomplex.vercel.app) · API: [uncomplex-api.onrender.com](https://uncomplex-api.onrender.com/actuator/health)
-> *(free hosting tier — the first request after idle takes ~1 min to wake the API)*
+[![CI](https://github.com/Jainoir/Uncomplex/actions/workflows/ci.yml/badge.svg)](https://github.com/Jainoir/Uncomplex/actions/workflows/ci.yml)
 
-Most learning tools answer *"how do I learn X?"*. Uncomplex answers the question that actually blocks people: *"why doesn't X make sense to me yet?"* — which is almost always **missing prerequisites**. The ordering is the product; the links are just the bonus.
+🌐 **[Try it live](https://uncomplex.vercel.app)** · [API health](https://uncomplex-api.onrender.com/actuator/health)
+<sub>free hosting tier — the first request after idle takes ~1 min to wake the API</sub>
+
+</div>
+
+Most learning tools answer *"how do I learn X?"*. Uncomplex answers the question that actually blocks people: *"why doesn't X make sense to me yet?"* — which is almost always **missing prerequisites**. The ordering is the product; the links are the bonus.
+
+**Jump to:** [How it works](#how-it-works) · [Tech stack](#tech-stack) · [Run it yourself](#run-it-yourself) · [API](#api) · [Architecture](#architecture) · [Design decisions](#design-decisions-and-why) · [Testing](#testing-strategy) · [Configuration](#configuration)
 
 ---
 
@@ -15,25 +21,25 @@ Most learning tools answer *"how do I learn X?"*. Uncomplex answers the question
 
 ### 1 · Say what you want to learn, where you're at, and why
 
-<img src="docs/screenshots/landing.png" alt="Landing page: topic input with experience level and learning goal" width="800">
+<p align="center"><img src="docs/screenshots/landing.png" alt="Landing page: topic input with experience level and learning goal" width="760"></p>
 
 ### 2 · Claude builds your prerequisite path — validated, ordered, time-boxed
 
-One AI call produces 4–8 prerequisite concepts. Every concept explains **what it is** and **why it comes first**; every resource link must survive a credibility allowlist (official docs, standards bodies, universities) before it's stored — a hallucinated URL can never reach you.
+One AI call produces 4–8 prerequisite concepts. Every concept explains **what it is** and **why it comes first**. Every resource link must survive a credibility allowlist (official docs, standards bodies, universities) before it's stored — a hallucinated URL can never reach you.
 
-<img src="docs/screenshots/roadmap.png" alt="Roadmap page: expandable prerequisite cards with explanations and credible resources" width="800">
+<p align="center"><img src="docs/screenshots/roadmap.png" alt="Roadmap page: expandable prerequisite cards with explanations and credible resources" width="760"></p>
 
 ### 3 · Track your progress node by node
 
-Create an account and the roadmap becomes a checklist. Progress is per-user: share the same roadmap with a friend and you each get your own checkboxes.
+With an account, the roadmap becomes a checklist. Progress is per-user: share the same roadmap with a friend and you each get your own checkboxes.
 
-<img src="docs/screenshots/progress.png" alt="Roadmap with completed nodes struck through and a progress bar at 2/6" width="800">
+<p align="center"><img src="docs/screenshots/progress.png" alt="Roadmap with completed nodes struck through and a progress bar at 2/6" width="760"></p>
 
 ### 4 · Keep a library — and share any roadmap with a link
 
-Every roadmap gets a public URL like `/r/docker-qn9wb` that anyone can open, **no account needed**. Generating the same topic/level/goal twice never calls the AI twice — repeat requests are served from PostgreSQL in milliseconds.
+Every roadmap gets a public URL like `/r/docker-qn9wb` that anyone can open, **no account needed**. Generating the same topic/level/goal twice never calls the AI twice — repeats are served from PostgreSQL in milliseconds.
 
-<img src="docs/screenshots/library.png" alt="Library page listing saved roadmaps with progress bars" width="800">
+<p align="center"><img src="docs/screenshots/library.png" alt="Library page listing saved roadmaps with progress bars" width="760"></p>
 
 ---
 
@@ -50,19 +56,19 @@ Every roadmap gets a public URL like `/r/docker-qn9wb` that anyone can open, **n
 
 ## Run it yourself
 
-**Zero dependencies** (in-memory H2 database + deterministic mock AI — no API key needed):
+**Zero dependencies** — in-memory H2 database + deterministic mock AI, no API key needed:
 
 ```bash
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
-**Frontend** (dev server proxies `/api` to the backend on :8080):
+**Frontend** — the dev server proxies `/api` to the backend on :8080:
 
 ```bash
 cd frontend && npm install && npm run dev   # http://localhost:5173
 ```
 
-**Full stack with real AI** (PostgreSQL + Redis via Docker, live Claude generation):
+**Full stack with real AI** — PostgreSQL + Redis via Docker, live Claude generation:
 
 ```bash
 export AI_PROVIDER=anthropic
@@ -70,7 +76,13 @@ export ANTHROPIC_API_KEY=sk-ant-...
 docker compose up --build
 ```
 
-**Tests:** `./mvnw verify` — the PostgreSQL and Redis Testcontainers suites skip automatically without Docker and run in CI.
+**Tests:**
+
+```bash
+./mvnw verify
+```
+
+The PostgreSQL and Redis Testcontainers suites skip automatically without Docker and run in CI.
 
 ## API
 
@@ -91,7 +103,7 @@ docker compose up --build
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/me/roadmaps` | My library, with per-roadmap progress counts. |
-| `POST` | `/api/me/roadmaps` | Save any shared roadmap (`{"shareToken": "..."}`) to my library. |
+| `POST` | `/api/me/roadmaps` | Save any shared roadmap (`{"shareToken": "..."}`). |
 | `GET` | `/api/me/roadmaps/{id}` | One roadmap + my progress overlay (completed node ids, percent). |
 | `PUT` | `/api/me/roadmaps/{id}/nodes/{nodeId}/progress` | Mark a node `{"completed": true/false}`. Idempotent. |
 | `DELETE` | `/api/me/roadmaps/{id}` | Remove from my library (the shared roadmap survives for others). |
@@ -115,13 +127,13 @@ com.uncomplex
 └── exception    RFC 9457 problem-detail handling
 ```
 
-### Design decisions (and why)
+## Design decisions (and why)
 
 **The AI is treated as an untrusted dependency.** This is the load-bearing design choice:
 
 1. **Structured outputs, not prompt-and-pray.** The Anthropic SDK constrains the model's response to the `RoadmapDraft` JSON schema (derived from Java records). No hand-rolled JSON parsing, no "please respond in JSON" prompting.
 2. **Schema-valid ≠ trustworthy.** `RoadmapDraftValidator` re-checks everything the schema can't express: 4–8 prerequisites, non-blank fields, clamped time estimates, ordering. Invalid output is retried once, then fails with a clean `502`.
-3. **AI-generated URLs are never trusted.** Every resource link must be `https` on a configurable allowlist of credible domains (official docs, standards bodies, `*.edu`). Anything else is silently dropped — a hallucinated link can never reach a user.
+3. **AI-generated URLs are never trusted.** Every resource link must be `https` on a configurable allowlist of credible domains (official docs, standards bodies, `*.edu`). Anything else is silently dropped.
 
 **One AI call per (topic, level, goal) — ever.** Requests are normalized into a cache key (`rate-limiting|beginner|system_design_interview`) with a unique DB constraint. Repeat requests and shared-link opens are pure reads. A race between concurrent first requests is resolved by the constraint, not by locks.
 
