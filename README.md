@@ -169,7 +169,8 @@ com.uncomplex
 | `REFRESH_TOKEN_TTL_DAYS` | `30` | Refresh-token lifetime |
 | `GENERATIONS_PER_DAY` | `10` | Per-client generation limit |
 | `AUTH_ATTEMPTS_PER_WINDOW` | `30` | Combined login/register attempts per client per 15 minutes |
-| `TRUSTED_PROXY_CIDRS` | empty locally; required on Render | Actual ingress proxy CIDRs; never outbound ranges |
+| `TRUSTED_PROXY_HOPS` | `0` | Proxies between the app and the client, socket peer included. Preferred where proxy addresses are not published (Render) |
+| `TRUSTED_PROXY_CIDRS` | empty | Actual ingress proxy CIDRs; never outbound ranges. Alternative to hop counting |
 | `LOCK_WAIT_MILLIS` | `1000` | Maximum lock-acquisition wait before a retryable 503 (0..10000 ms) |
 | `RATE_LIMIT_STORE` | `memory` | `redis` for multi-replica deployments |
 | `LINK_HEALTH_ENABLED` | `true` | Nightly resource-link liveness probing |
@@ -196,8 +197,22 @@ against H2 locally and PostgreSQL with Testcontainers when Docker is available.
 The frontend API tests cover concurrent and cross-tab refresh, logout races,
 expired credentials on public requests, and temporary refresh failures.
 
-Behind a reverse proxy, configure `TRUSTED_PROXY_CIDRS` to the actual proxy network
-ranges before deployment. Forwarded addresses are followed from right to left,
-stopping at the first untrusted address. Render deployments fail startup if this value is empty. Local/direct deployments may leave it empty to ignore forwarded headers. Confirm the actual proxy ranges before deployment; do not trust arbitrary ranges. See FIXES.md for diagnostics and verification limits.
+Behind a reverse proxy, identify the proxies one of two ways before deployment. Each proxy
+appends the peer it received from, so the client is always found by walking the forwarded
+chain from the right; entries further left are client-supplied and must never be trusted.
+
+- `TRUSTED_PROXY_HOPS` — the number of proxies between the app and the client, socket peer
+  included. Use this where the proxy addresses are not published. Render is such a case: it
+  does not document its ingress ranges, and all inbound traffic also passes through
+  Cloudflare. A forwarded chain shorter than the configured hop count falls back to the
+  socket peer rather than trusting a spoofable value.
+- `TRUSTED_PROXY_CIDRS` — the actual proxy ranges, walked right to left and stopping at the
+  first untrusted address. Use this where you control the proxies and know their addresses.
+
+Render deployments fail startup unless one of the two is set. Local and direct deployments
+may leave both unset, which ignores forwarded headers entirely. To determine the hop count,
+deploy once with `LOGGING_LEVEL_COM_UNCOMPLEX_RATELIMIT=DEBUG`, POST to `/api/roadmaps`, read
+the `x-forwarded-for` value in the logs, then turn DEBUG back off. See FIXES.md for
+verification limits.
 
 See [FIXES.md](FIXES.md) for the reliability change list.

@@ -42,3 +42,39 @@ Verification used checksum-verified portable Java 21 and Node 22 under the syste
 - **Redis evidence gap remains explicit:** added real-Redis tests for concurrent increments, positive TTLs, repairing missing expiry, separate authentication/generation budgets, and reopening an expired window. Docker is absent locally, so these tests were compiled but skipped. CI now checks `docker info` before the backend suite; no remote CI result is claimed.
 
 References: [Render client-IP guidance](https://render.com/articles/how-render-handles-ddos-attacks), [PostgreSQL advisory-lock functions](https://www.postgresql.org/docs/15/functions-admin.html).
+## Follow-up: proxy identification on Render
+
+The previous instruction — supply `TRUSTED_PROXY_CIDRS` with Render's ingress ranges — is not
+practically satisfiable, so it has been replaced rather than left as a deployment blocker.
+
+Render's own documentation states that all inbound traffic passes through Cloudflare's network
+before reaching the application, and that "because traffic passes through Cloudflare and
+Render's load balancers, your app sees the proxy's IP by default." There are therefore at least
+two proxy layers, and Render does not publish the ingress addresses of either. (Its documented
+IP ranges are *outbound* only and must not be substituted.) A CIDR allowlist cannot be filled
+in correctly against infrastructure whose addresses are undocumented and subject to change.
+
+`TRUSTED_PROXY_HOPS` was added as the alternative. It trusts a fixed *number* of proxies rather
+than their addresses: with N hops the client is the Nth entry from the right of the forwarded
+chain. This is correct for the same reason the right-to-left walk is — each proxy appends the
+peer it received from, so entries further left are client-supplied. Cloudflare appends rather
+than replaces, so the *first* entry is attacker-controlled and must never be read as the client,
+a common misconfiguration.
+
+Behaviour: a chain shorter than the configured hop count, or a malformed entry at the trusted
+position, falls back to the socket peer instead of a spoofable value. `TRUSTED_PROXY_CIDRS`
+still works and takes effect when hops is 0. On Render, startup now fails unless one of the two
+is configured. Bounds are 0..10.
+
+Still unverified: the actual hop count for this service. It is one deploy away — set
+`LOGGING_LEVEL_COM_UNCOMPLEX_RATELIMIT=DEBUG`, POST to `/api/roadmaps`, and read the
+`x-forwarded-for` value now included in the debug line. No value has been guessed, and the
+Blueprint requires it to be entered explicitly.
+
+Verification: `mvnw.cmd -B -ntp verify` passed; 83 tests, 72 passed, 11 skipped (unchanged
+Testcontainers suites), no failures. Seven new tests cover hop selection, the spoofed prefix,
+two-proxy chains, short chains, a missing header, a malformed entry at the trusted hop, the
+startup guard, and the bounds check.
+
+References: [Render DDoS/client IP guidance](https://render.com/articles/how-render-handles-ddos-attacks),
+[Cloudflare HTTP headers](https://developers.cloudflare.com/fundamentals/reference/http-headers/).

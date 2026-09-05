@@ -27,14 +27,21 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final RateLimiter generationLimiter;
     private final RateLimiter authLimiter;
     private final List<IpAddressMatcher> trustedProxies;
+    private final int trustedHops;
 
     public RateLimitFilter(RateLimiter rateLimiter, StringRedisTemplate redis, AppProperties properties,
             @Value("${app.rate-limit.auth-attempts-per-window:30}") long authAttempts,
             @Value("${app.rate-limit.trusted-proxy-cidrs:}") String proxyCidrs,
+            @Value("${app.rate-limit.trusted-proxy-hops:0}") int trustedHops,
             @Value("${app.rate-limit.require-trusted-proxy:false}") boolean requireTrustedProxy) {
-        if (requireTrustedProxy && proxyCidrs.isBlank()) {
-            throw new IllegalStateException("TRUSTED_PROXY_CIDRS must identify the actual reverse proxies on this deployment");
+        if (trustedHops < 0 || trustedHops > 10) {
+            throw new IllegalStateException("TRUSTED_PROXY_HOPS must be 0..10");
         }
+        if (requireTrustedProxy && trustedHops == 0 && proxyCidrs.isBlank()) {
+            throw new IllegalStateException("Set TRUSTED_PROXY_HOPS (preferred where the proxy IPs are not published, "
+                    + "such as Render) or TRUSTED_PROXY_CIDRS to identify the reverse proxies on this deployment");
+        }
+        this.trustedHops = trustedHops;
         this.generationLimiter = rateLimiter;
         this.authLimiter = "redis".equals(properties.rateLimit().store())
                 ? new RedisRateLimiter(redis, authAttempts, Duration.ofMinutes(15), "ratelimit:auth:")
@@ -59,7 +66,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
                                     FilterChain chain) throws ServletException, IOException {
         RateLimiter.Decision decision;
         String client = clientKey(request);
-        log.debug("Rate-limit address: peer={}, client={}", request.getRemoteAddr(), client);
+        // Deploy once with this at DEBUG to read the real chain, then set trusted-proxy-hops to the
+        // number of proxies between this app and the client (peer included).
+        log.debug("Rate-limit address: peer={}, x-forwarded-for={}, client={}",
+                request.getRemoteAddr(), String.join(" | ", Collections.list(request.getHeaders("X-Forwarded-For"))), client);
         try {
             decision = (isAuth(request) ? authLimiter : generationLimiter).tryConsume(client);
         } catch (RuntimeException failure) {
@@ -94,9 +104,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
         if (peer == null) return request.getRemoteAddr();
         String address = peer;
         var headers = Collections.list(request.getHeaders("X-Forwarded-For"));
-        if (headers.isEmpty() || !trusted(address)) return address;
-        // Walk from the closest proxy, stopping at the first untrusted address.
+        if (headers.isEmpty()) return address;
         String[] chain = String.join(",", headers).split(",", -1);
+        // Hop counting is the only workable mode where the proxy addresses are not published
+        // (Render sits behind Cloudflare and does not document its ingress ranges).
+        if (trustedHops > 0) return hopAddress(chain, peer);
+        if (!trusted(address)) return address;
+        // Walk from the closest proxy, stopping at the first untrusted address.
         for (int i = chain.length - 1; i >= 0 && trusted(address); i--) {
             String candidate = literalAddress(chain[i].trim());
             if (candidate == null) return peer;
@@ -105,6 +119,20 @@ public class RateLimitFilter extends OncePerRequestFilter {
         // A chain made entirely of proxies identifies no client. Never use a
         // client-supplied proxy address as a fresh rate-limit budget.
         return trusted(address) ? peer : address;
+    }
+
+    /**
+     * Trust a fixed number of proxies rather than their addresses. With N trusted hops the client is
+     * the Nth entry from the right, because each proxy appends the peer it received from. Entries to
+     * the left of it are client-supplied and must never be trusted. A chain shorter than the
+     * configured hop count means the request did not arrive through the expected proxies, so the
+     * socket peer is used instead of a spoofable value.
+     */
+    private String hopAddress(String[] chain, String peer) {
+        int index = chain.length - trustedHops;
+        if (index < 0 || index >= chain.length) return peer;
+        String candidate = literalAddress(chain[index].trim());
+        return candidate == null ? peer : candidate;
     }
 
     /** Parse literals only, never DNS names. Normalize equivalent spellings to one budget. */

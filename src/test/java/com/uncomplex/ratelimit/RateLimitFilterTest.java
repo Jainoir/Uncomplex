@@ -14,7 +14,66 @@ class RateLimitFilterTest {
     private final RateLimiter generation = mock(RateLimiter.class);
 
     private RateLimitFilter filter(String proxies) {
-        return new RateLimitFilter(generation, mock(StringRedisTemplate.class), TestFixtures.appProperties(), 2, proxies, false);
+        return new RateLimitFilter(generation, mock(StringRedisTemplate.class), TestFixtures.appProperties(), 2, proxies, 0, false);
+    }
+
+    private RateLimitFilter hopFilter(int hops) {
+        return new RateLimitFilter(generation, mock(StringRedisTemplate.class), TestFixtures.appProperties(), 2, "", hops, false);
+    }
+
+    /** Sends `forwarded` from an unlisted peer and returns nothing; assertions verify the budget key. */
+    private void dispatch(RateLimitFilter filter, String forwarded) throws Exception {
+        var request = new MockHttpServletRequest("POST", "/api/roadmaps");
+        request.setRemoteAddr("10.0.0.2");
+        if (forwarded != null) request.addHeader("X-Forwarded-For", forwarded);
+        filter.doFilter(request, new MockHttpServletResponse(), (req, res) -> {});
+    }
+
+    @Test
+    void oneTrustedHopUsesTheLastEntryAndIgnoresASpoofedPrefix() throws Exception {
+        when(generation.tryConsume("203.0.113.9")).thenReturn(new RateLimiter.Decision(true, 1, 0));
+        dispatch(hopFilter(1), "1.2.3.4, 203.0.113.9");
+        verify(generation).tryConsume("203.0.113.9");
+    }
+
+    @Test
+    void twoTrustedHopsSkipTheInnerProxy() throws Exception {
+        when(generation.tryConsume("203.0.113.9")).thenReturn(new RateLimiter.Decision(true, 1, 0));
+        dispatch(hopFilter(2), "1.2.3.4, 203.0.113.9, 198.51.100.1");
+        verify(generation).tryConsume("203.0.113.9");
+    }
+
+    @Test
+    void chainShorterThanConfiguredHopsFallsBackToThePeer() throws Exception {
+        when(generation.tryConsume("10.0.0.2")).thenReturn(new RateLimiter.Decision(true, 1, 0));
+        dispatch(hopFilter(3), "203.0.113.9");
+        verify(generation).tryConsume("10.0.0.2");
+    }
+
+    @Test
+    void missingForwardedHeaderUnderHopCountingFallsBackToThePeer() throws Exception {
+        when(generation.tryConsume("10.0.0.2")).thenReturn(new RateLimiter.Decision(true, 1, 0));
+        dispatch(hopFilter(1), null);
+        verify(generation).tryConsume("10.0.0.2");
+    }
+
+    @Test
+    void malformedEntryAtTheTrustedHopFallsBackToThePeer() throws Exception {
+        when(generation.tryConsume("10.0.0.2")).thenReturn(new RateLimiter.Decision(true, 1, 0));
+        dispatch(hopFilter(1), "203.0.113.9, 1.2.3.4.5");
+        verify(generation).tryConsume("10.0.0.2");
+    }
+
+    @Test
+    void hopCountingSatisfiesTheRequiredProxyConfigurationWithoutCidrs() {
+        assertThat(new RateLimitFilter(generation, mock(StringRedisTemplate.class),
+                TestFixtures.appProperties(), 2, "", 1, true)).isNotNull();
+    }
+
+    @Test
+    void outOfRangeHopCountIsRejected() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> hopFilter(11))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("TRUSTED_PROXY_HOPS");
     }
 
     @ParameterizedTest
@@ -47,7 +106,7 @@ class RateLimitFilterTest {
     @Test
     void requiredProxyConfigurationCannotSilentlyDefaultToSharedBudget() {
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> new RateLimitFilter(generation,
-                mock(StringRedisTemplate.class), TestFixtures.appProperties(), 2, "", true))
+                mock(StringRedisTemplate.class), TestFixtures.appProperties(), 2, "", 0, true))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("TRUSTED_PROXY_CIDRS");
     }
 
