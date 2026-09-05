@@ -2,6 +2,7 @@ package com.uncomplex.ai;
 
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.errors.AnthropicServiceException;
+import com.anthropic.errors.AnthropicIoException;
 import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.StructuredMessageCreateParams;
 import com.anthropic.models.messages.ThinkingConfigAdaptive;
@@ -71,6 +72,8 @@ public class AnthropicRoadmapGenerator implements AiRoadmapGenerator {
         } catch (AnthropicServiceException e) {
             log.error("Anthropic API call failed with status {}", e.statusCode(), e);
             throw new AiGenerationException("Anthropic API call failed", e);
+        } catch (AnthropicIoException e) {
+            throw new AiGenerationException("Anthropic API request timed out or could not connect", e);
         }
     }
 

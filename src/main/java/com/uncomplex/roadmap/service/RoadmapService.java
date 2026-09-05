@@ -17,7 +17,7 @@ import com.uncomplex.roadmap.model.LearningGoal;
 import com.uncomplex.roadmap.repository.RoadmapRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataIntegrityViolationException;
+import com.uncomplex.config.DatabaseMutex;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,9 +30,11 @@ public class RoadmapService {
     private final AiRoadmapGenerator generator;
     private final RoadmapDraftValidator validator;
     private final int maxAttempts;
+    private final DatabaseMutex mutex;
 
     public RoadmapService(RoadmapRepository repository, AiRoadmapGenerator generator,
-                          RoadmapDraftValidator validator, AppProperties properties) {
+                          RoadmapDraftValidator validator, AppProperties properties, DatabaseMutex mutex) {
+        this.mutex = mutex;
         this.repository = repository;
         this.generator = generator;
         this.validator = validator;
@@ -47,6 +49,10 @@ public class RoadmapService {
     @Transactional
     public Roadmap getOrGenerate(String topic, ExperienceLevel level, LearningGoal goal) {
         String cacheKey = CacheKeys.of(topic, level, goal);
+        var cached = repository.findByCacheKey(cacheKey);
+        if (cached.isPresent()) return initialized(cached.get());
+        // Cache hits never wait. After locking a miss, recheck in case another request won.
+        mutex.acquire("generation:" + cacheKey);
         return initialized(repository.findByCacheKey(cacheKey)
                 .orElseGet(() -> generateAndSave(cacheKey, topic, level, goal)));
     }
@@ -70,13 +76,7 @@ public class RoadmapService {
     private Roadmap generateAndSave(String cacheKey, String topic, ExperienceLevel level, LearningGoal goal) {
         SanitizedDraft draft = generateWithRetry(topic, level, goal);
         Roadmap roadmap = toEntity(cacheKey, topic, level, goal, draft);
-        try {
-            return repository.saveAndFlush(roadmap);
-        } catch (DataIntegrityViolationException e) {
-            // A concurrent request generated the same roadmap first; serve the winner.
-            log.info("Concurrent generation detected for key {}, serving existing roadmap", cacheKey);
-            return repository.findByCacheKey(cacheKey).orElseThrow(() -> e);
-        }
+        return repository.saveAndFlush(roadmap);
     }
 
     private SanitizedDraft generateWithRetry(String topic, ExperienceLevel level, LearningGoal goal) {

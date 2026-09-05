@@ -30,6 +30,8 @@ management:
       enabled: ${REDIS_HEALTH_ENABLED:false}
 
 app:
+  concurrency:
+    lock-wait-millis: ${LOCK_WAIT_MILLIS:1000}
   ai:
     # "mock" runs without any API key; set to "anthropic" (plus ANTHROPIC_API_KEY) for real generation
     provider: ${AI_PROVIDER:mock}
@@ -44,6 +46,10 @@ app:
     max-attempts: 2
   rate-limit:
     generations-per-day: ${GENERATIONS_PER_DAY:10}
+    auth-attempts-per-window: ${AUTH_ATTEMPTS_PER_WINDOW:30}
+    # Set only to the actual reverse proxy CIDRs. Empty ignores forwarded headers.
+    trusted-proxy-cidrs: ${TRUSTED_PROXY_CIDRS:}
+    require-trusted-proxy: ${RENDER:false}
     # "memory" (single instance) or "redis" (shared across replicas)
     store: ${RATE_LIMIT_STORE:memory}
   link-health:

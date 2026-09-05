@@ -25,7 +25,8 @@ public class AiConfig {
             throw new IllegalStateException(
                     "app.ai.provider=anthropic requires the ANTHROPIC_API_KEY environment variable");
         }
-        return AnthropicOkHttpClient.builder().apiKey(apiKey).build();
+        return AnthropicOkHttpClient.builder().apiKey(apiKey)
+                .timeout(java.time.Duration.ofSeconds(45)).maxRetries(0).build();
     }
 
     @Bean

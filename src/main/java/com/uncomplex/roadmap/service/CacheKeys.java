@@ -8,7 +8,7 @@ import java.util.Locale;
 /**
  * Builds the normalized cache key so that "Rate Limiting", "rate  limiting" and
  * "RATE-LIMITING" for the same level and goal all resolve to one stored roadmap
- * (one AI call, ever).
+ * (successful results are reused).
  */
 public final class CacheKeys {
 
