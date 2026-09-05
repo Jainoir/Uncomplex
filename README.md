@@ -178,6 +178,15 @@ com.uncomplex
 
 Deployment is codified in the repo: [`render.yaml`](render.yaml) (API + PostgreSQL Blueprint) and [`frontend/vercel.json`](frontend/vercel.json) (SPA rewrites).
 
+> **The database is on Render's free tier, which is deleted 30 days after creation.**
+> Recreated **2026-09-05**, so it expires around **2026-10-05**. When it goes, the API stops
+> booting: Flyway cannot connect, the context fails, and the container exits with status 1 —
+> which surfaces as hung requests rather than an HTTP error, because Render holds the
+> connection open waiting for an origin that never becomes ready. The instance already running
+> keeps serving until something forces a restart, so the outage can appear weeks after the
+> deletion. Upgrade to a paid instance to stop this recurring, or re-provision and let Flyway
+> rebuild the schema from V1 (all data is lost either way).
+
 ## Project roadmap
 
 - ~~**Milestone 1** — anonymous generate / persist / share~~ ✅
