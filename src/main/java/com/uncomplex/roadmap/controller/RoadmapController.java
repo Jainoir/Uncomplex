@@ -37,7 +37,7 @@ public class RoadmapController {
     @PostMapping
     public ResponseEntity<RoadmapResponse> generate(@Valid @RequestBody GenerateRoadmapRequest request,
                                                     @AuthenticationPrincipal Jwt jwt) {
-        Roadmap roadmap = service.getOrGenerate(request.topic(), request.experienceLevel(), request.goal());
+        Roadmap roadmap = service.getOrGenerate(request.topic(), request.context(), request.experienceLevel(), request.goal());
         if (jwt != null) {
             libraryService.saveIfAbsent(Long.valueOf(jwt.getSubject()), roadmap);
         }

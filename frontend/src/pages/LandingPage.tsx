@@ -20,6 +20,7 @@ const GOALS: { value: LearningGoal; label: string }[] = [
 export default function LandingPage() {
   const navigate = useNavigate()
   const [topic, setTopic] = useState('')
+  const [context, setContext] = useState('')
   const [level, setLevel] = useState<ExperienceLevel>('BEGINNER')
   const [goal, setGoal] = useState<LearningGoal>('GENERAL_UNDERSTANDING')
   const [busy, setBusy] = useState(false)
@@ -31,7 +32,7 @@ export default function LandingPage() {
     setBusy(true)
     setError(null)
     try {
-      const roadmap = await api.generate(topic.trim(), level, goal)
+      const roadmap = await api.generate(topic.trim(), context.trim(), level, goal)
       navigate(`/r/${roadmap.shareToken}`)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.')
@@ -59,6 +60,26 @@ export default function LandingPage() {
             required
           />
         </label>
+
+        {/* The hint is a description, not part of the accessible name — keeping it inside the
+            label would fold it into the name and make "Topic" ambiguous to match. */}
+        <div className="field">
+          <label>
+            In the context of <span className="label-optional">optional</span>
+            <input
+              value={context}
+              onChange={e => setContext(e.target.value)}
+              placeholder="CI/CD pipelines, REST APIs, data engineering…"
+              maxLength={120}
+              aria-describedby="context-hint"
+            />
+          </label>
+          <p id="context-hint" className="hint">
+            Some subjects mean different things in different places. &ldquo;Integration&rdquo; is
+            CI/CD to one person and REST APIs to another — say which you meant and you get a
+            roadmap for that one.
+          </p>
+        </div>
 
         <div className="form-row">
           <label>

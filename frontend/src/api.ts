@@ -195,9 +195,9 @@ export const api = {
     }
   },
 
-  generate(topic: string, experienceLevel: ExperienceLevel, goal: LearningGoal) {
+  generate(topic: string, context: string, experienceLevel: ExperienceLevel, goal: LearningGoal) {
     return request<Roadmap>('/api/roadmaps', {
-      method: 'POST', body: JSON.stringify({ topic, experienceLevel, goal }),
+      method: 'POST', body: JSON.stringify({ topic, context, experienceLevel, goal }),
     })
   },
 

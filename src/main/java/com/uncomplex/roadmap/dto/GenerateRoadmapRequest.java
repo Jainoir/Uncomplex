@@ -13,6 +13,15 @@ public record GenerateRoadmapRequest(
         @Pattern(regexp = "[\\p{L}\\p{N} .,+#/&()'-]+", message = "topic contains unsupported characters")
         String topic,
 
+        /**
+         * Optional field the topic belongs to, for topics that mean different things in
+         * different places — "integration" as CI/CD versus as REST APIs. Blank keeps the
+         * original behaviour, including the original cache key.
+         */
+        @Size(max = 120, message = "context must be at most 120 characters")
+        @Pattern(regexp = "[\\p{L}\\p{N} .,+#/&()'-]*", message = "context contains unsupported characters")
+        String context,
+
         @NotNull(message = "experienceLevel is required")
         ExperienceLevel experienceLevel,
 

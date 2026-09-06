@@ -15,9 +15,20 @@ public final class CacheKeys {
     private CacheKeys() {
     }
 
-    public static String of(String topic, ExperienceLevel level, LearningGoal goal) {
-        return normalizeTopic(topic) + "|" + level.name().toLowerCase(Locale.ROOT)
+    /**
+     * A blank context deliberately produces the original three-part key. Roadmaps generated
+     * before context existed stay reachable, so adding this feature does not silently
+     * invalidate the cache and pay for every roadmap to be generated a second time.
+     * Neither topic nor context can contain "|" (see GenerateRoadmapRequest), so a context
+     * cannot forge a key belonging to a different topic.
+     */
+    public static String of(String topic, String context, ExperienceLevel level, LearningGoal goal) {
+        String suffix = "|" + level.name().toLowerCase(Locale.ROOT)
                 + "|" + goal.name().toLowerCase(Locale.ROOT);
+        String normalizedContext = context == null ? "" : normalizeTopic(context);
+        return normalizedContext.isEmpty()
+                ? normalizeTopic(topic) + suffix
+                : normalizeTopic(topic) + "|" + normalizedContext + suffix;
     }
 
     public static String normalizeTopic(String topic) {

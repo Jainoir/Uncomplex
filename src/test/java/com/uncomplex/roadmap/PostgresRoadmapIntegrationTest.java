@@ -36,7 +36,7 @@ class PostgresRoadmapIntegrationTest {
 
     @Test
     void generatePersistAndReloadAgainstRealPostgres() {
-        Roadmap generated = service.getOrGenerate("Database indexing",
+        Roadmap generated = service.getOrGenerate("Database indexing", null,
                 ExperienceLevel.INTERMEDIATE, LearningGoal.JOB_INTERVIEW);
 
         // Read back through the service (initializes the lazy graph inside the
@@ -49,7 +49,7 @@ class PostgresRoadmapIntegrationTest {
         assertThat(reloaded.getEstimatedTotalMinutes()).isGreaterThan(0);
 
         // Second call for the same combination must not create a new row
-        Roadmap again = service.getOrGenerate("Database Indexing",
+        Roadmap again = service.getOrGenerate("Database Indexing", null,
                 ExperienceLevel.INTERMEDIATE, LearningGoal.JOB_INTERVIEW);
         assertThat(again.getId()).isEqualTo(generated.getId());
         assertThat(repository.count()).isEqualTo(1);

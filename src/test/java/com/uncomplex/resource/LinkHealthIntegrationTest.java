@@ -45,7 +45,7 @@ class LinkHealthIntegrationTest {
     void deadLinksAreRecordedAndSurfacedInTheApi() throws Exception {
         // Mock generator produces two resources: a Client-Server page and an HTTP overview page
         String shareToken = roadmapService
-                .getOrGenerate("Link health", ExperienceLevel.BEGINNER, LearningGoal.GENERAL_UNDERSTANDING)
+                .getOrGenerate("Link health", null, ExperienceLevel.BEGINNER, LearningGoal.GENERAL_UNDERSTANDING)
                 .getShareToken();
 
         when(urlProber.isReachable(anyString())).thenReturn(true);
