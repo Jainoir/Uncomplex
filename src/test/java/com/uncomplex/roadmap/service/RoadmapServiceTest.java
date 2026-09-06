@@ -41,7 +41,7 @@ class RoadmapServiceTest {
     void setUp() {
         var properties = TestFixtures.appProperties();
         var validator = new RoadmapDraftValidator(properties, new ResourceCredibilityService(properties));
-        service = new RoadmapService(repository, generator, validator, properties);
+        service = new RoadmapService(repository, generator, validator, properties, org.mockito.Mockito.mock(com.uncomplex.config.DatabaseMutex.class));
     }
 
     @Test

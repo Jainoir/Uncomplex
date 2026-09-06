@@ -20,7 +20,9 @@ jobs:
       # Docker is available on ubuntu-latest, so the Testcontainers-based
       # PostgreSQL integration test runs here even though it is skipped locally.
       - name: Build and test
-        run: ./mvnw -B verify
+        run: |
+          docker info > /dev/null
+          ./mvnw -B verify
 
       - name: Upload test reports
         if: failure()
@@ -48,3 +50,15 @@ jobs:
 
       - name: Typecheck and build
         run: npm run build
+
+      - name: Frontend regression tests
+        run: npm test
+
+      - name: Frontend lint
+        run: npm run lint
+
+      - name: Install test browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser regression tests
+        run: npm run test:browser

@@ -22,6 +22,13 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    @ExceptionHandler(OperationBusyException.class)
+    public org.springframework.http.ResponseEntity<ProblemDetail> handleBusy(OperationBusyException e) {
+        return org.springframework.http.ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header("Retry-After", "1")
+                .body(problem(HttpStatus.SERVICE_UNAVAILABLE, "Operation in progress", e.getMessage()));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ProblemDetail handleValidation(MethodArgumentNotValidException e) {
         String details = e.getBindingResult().getFieldErrors().stream()

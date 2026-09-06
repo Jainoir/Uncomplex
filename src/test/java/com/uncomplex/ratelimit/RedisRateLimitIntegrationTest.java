@@ -40,6 +40,46 @@ class RedisRateLimitIntegrationTest {
     @Autowired
     private RateLimiter rateLimiter;
 
+    @Autowired
+    private org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
+
+    @Test
+    void luaCounterIsAtomicUnderConcurrentRequestsAndSetsExpiry() throws Exception {
+        String prefix = "test:" + java.util.UUID.randomUUID() + ":";
+        var limiter = new RedisRateLimiter(redisTemplate, 4, java.time.Duration.ofSeconds(30), prefix);
+        try (var executor = java.util.concurrent.Executors.newFixedThreadPool(8)) {
+            var tasks = java.util.stream.IntStream.range(0, 20)
+                    .<java.util.concurrent.Callable<Boolean>>mapToObj(i -> () -> limiter.tryConsume("client").allowed())
+                    .toList();
+            int allowed = 0;
+            for (var result : executor.invokeAll(tasks)) if (result.get()) allowed++;
+            assertThat(allowed).isEqualTo(4);
+            assertThat(redisTemplate.getExpire(prefix + "client")).isBetween(1L, 30L);
+        }
+    }
+
+    @Test
+    void luaRepairsMissingExpiryAndBudgetsRemainSeparate() {
+        String prefix = "test:" + java.util.UUID.randomUUID() + ":";
+        redisTemplate.opsForValue().set(prefix + "generation:client", "1");
+        assertThat(redisTemplate.getExpire(prefix + "generation:client")).isEqualTo(-1);
+        var generation = new RedisRateLimiter(redisTemplate, 1, java.time.Duration.ofSeconds(30), prefix + "generation:");
+        var auth = new RedisRateLimiter(redisTemplate, 1, java.time.Duration.ofSeconds(30), prefix + "auth:");
+        assertThat(generation.tryConsume("client").allowed()).isFalse();
+        assertThat(redisTemplate.getExpire(prefix + "generation:client")).isBetween(1L, 30L);
+        assertThat(auth.tryConsume("client").allowed()).isTrue();
+    }
+
+    @Test
+    void luaWindowAllowsRequestsAgainAfterExpiry() throws Exception {
+        String prefix = "test:" + java.util.UUID.randomUUID() + ":";
+        var limiter = new RedisRateLimiter(redisTemplate, 1, java.time.Duration.ofSeconds(1), prefix);
+        assertThat(limiter.tryConsume("client").allowed()).isTrue();
+        assertThat(limiter.tryConsume("client").allowed()).isFalse();
+        Thread.sleep(1200);
+        assertThat(limiter.tryConsume("client").allowed()).isTrue();
+    }
+
     @Test
     void redisLimiterIsSelectedAndEnforcesTheWindow() throws Exception {
         assertThat(rateLimiter).isInstanceOf(RedisRateLimiter.class);

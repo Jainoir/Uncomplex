@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Route, Routes, useNavigate } from 'react-router-dom'
 import { api } from './api'
 import LandingPage from './pages/LandingPage'
@@ -9,6 +9,16 @@ import LibraryPage from './pages/LibraryPage'
 export default function App() {
   const navigate = useNavigate()
   const [email, setEmail] = useState<string | null>(api.currentEmail())
+
+  useEffect(() => {
+    const sync = () => setEmail(api.currentEmail())
+    window.addEventListener('uncomplex:auth', sync)
+    window.addEventListener('storage', sync)
+    return () => {
+      window.removeEventListener('uncomplex:auth', sync)
+      window.removeEventListener('storage', sync)
+    }
+  }, [])
 
   async function handleLogout() {
     await api.logout()
@@ -36,7 +46,7 @@ export default function App() {
       <main>
         <Routes>
           <Route path="/" element={<LandingPage />} />
-          <Route path="/r/:shareToken" element={<RoadmapPage />} />
+          <Route path="/r/:shareToken" element={<RoadmapPage key={email ?? "anonymous"} />} />
           <Route path="/auth" element={<AuthPage onAuthed={() => setEmail(api.currentEmail())} />} />
           <Route path="/library" element={<LibraryPage />} />
         </Routes>

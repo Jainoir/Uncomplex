@@ -10,9 +10,9 @@ via Testcontainers): [Actions history](https://github.com/Jainoir/Uncomplex/acti
 - [x] AI generation via Anthropic structured outputs (schema derived from Java records)
 - [x] Provider-agnostic `AiRoadmapGenerator` port + deterministic mock (runs with no API key)
 - [x] Output validation: 4–8 prerequisite bounds, clamped time estimates, retry on invalid output
-- [x] Resource credibility allowlist — hallucinated / non-credible URLs never persisted
+- [x] Resource credibility allowlist — non-allowlisted domains rejected; page existence and content accuracy are not guaranteed
 - [x] Relational model (`roadmap` → `roadmap_node` → `node_resource`) with Flyway `V1`
-- [x] One AI call per topic/level/goal ever — cache key + DB unique constraint (race-safe)
+- [x] Cached generation per topic/level/goal; concurrent misses serialized with transaction-scoped database locks
 - [x] Public share links (`/api/roadmaps/public/{shareToken}`), no account required
 - [x] Per-client rate limiting on generation (Bucket4j), RFC 9457 problem-detail errors
 - [x] `local` profile (H2 in-memory) — zero-dependency dev; PostgreSQL for real deployments
@@ -34,10 +34,10 @@ via Testcontainers): [Actions history](https://github.com/Jainoir/Uncomplex/acti
 ## ✅ Milestone 3 — Hardening
 
 - [x] Refresh tokens: opaque, SHA-256 hashed at rest, rotation on every refresh (Flyway `V3`)
-- [x] Token-reuse detection → revokes **all** of the user's sessions
+- [x] Token-reuse detection → revokes **all** of the user's refresh tokens (access JWTs remain valid until expiry)
       (with the `noRollbackFor` fix so the revocation survives the thrown 401)
 - [x] Pluggable rate limiting: in-memory Bucket4j (default) or Redis fixed-window
-      `INCR`+`EXPIRE` shared across replicas (`RATE_LIMIT_STORE=redis`)
+      `INCR`+`EXPIRE` in one atomic Lua script shared across replicas (`RATE_LIMIT_STORE=redis`)
 - [x] Redis integration test via Testcontainers (runs in CI)
 - [x] Nightly link liveness job: `HEAD` probe with `GET` fallback, `reachable` flag
       surfaced in the API
@@ -91,3 +91,9 @@ via Testcontainers): [Actions history](https://github.com/Jainoir/Uncomplex/acti
 - [ ] Per-node "give me a different resource" regeneration
 - [ ] FR/EN bilingual content (relevant for Desjardins)
 - [ ] Dependency graph view
+
+
+## Reliability follow-up
+
+The original milestone checklist describes feature coverage, not a production-readiness guarantee.
+See [FIXES.md](FIXES.md) for the subsequent reliability changes and verification limitations.

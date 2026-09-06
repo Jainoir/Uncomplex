@@ -13,7 +13,7 @@ import com.uncomplex.roadmap.mapper.RoadmapMapper;
 import com.uncomplex.roadmap.repository.RoadmapRepository;
 import com.uncomplex.user.AppUser;
 import com.uncomplex.user.UserRepository;
-import org.springframework.dao.DataIntegrityViolationException;
+import com.uncomplex.config.DatabaseMutex;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,9 +27,11 @@ public class LibraryService {
     private final RoadmapRepository roadmaps;
     private final UserRepository users;
     private final RoadmapMapper mapper;
+    private final DatabaseMutex mutex;
 
     public LibraryService(SavedRoadmapRepository savedRoadmaps, NodeProgressRepository nodeProgress,
-                          RoadmapRepository roadmaps, UserRepository users, RoadmapMapper mapper) {
+                          RoadmapRepository roadmaps, UserRepository users, RoadmapMapper mapper, DatabaseMutex mutex) {
+        this.mutex = mutex;
         this.savedRoadmaps = savedRoadmaps;
         this.nodeProgress = nodeProgress;
         this.roadmaps = roadmaps;
@@ -67,19 +69,17 @@ public class LibraryService {
     /** Called after generation when the request carries a valid JWT. Idempotent. */
     @Transactional
     public void saveIfAbsent(Long userId, Roadmap roadmap) {
+        mutex.acquire("library:" + userId);
         if (savedRoadmaps.existsByUserIdAndRoadmapId(userId, roadmap.getId())) {
             return;
         }
         AppUser user = users.getReferenceById(userId);
-        try {
-            savedRoadmaps.saveAndFlush(new SavedRoadmap(user, roadmap));
-        } catch (DataIntegrityViolationException ignored) {
-            // Concurrent save of the same roadmap by the same user — already in the library.
-        }
+        savedRoadmaps.saveAndFlush(new SavedRoadmap(user, roadmap));
     }
 
     @Transactional
     public void removeFromLibrary(Long userId, Long roadmapId) {
+        mutex.acquire("library:" + userId);
         SavedRoadmap saved = requireSaved(userId, roadmapId);
         nodeProgress.deleteAllForUserAndRoadmap(userId, roadmapId);
         savedRoadmaps.delete(saved);
@@ -88,6 +88,7 @@ public class LibraryService {
     @Transactional
     public RoadmapProgressResponse.Progress setNodeProgress(Long userId, Long roadmapId, Long nodeId,
                                                             boolean completed) {
+        mutex.acquire("library:" + userId);
         SavedRoadmap saved = requireSaved(userId, roadmapId);
         RoadmapNode node = saved.getRoadmap().getNodes().stream()
                 .filter(n -> n.getId().equals(nodeId))

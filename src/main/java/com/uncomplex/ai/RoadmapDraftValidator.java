@@ -50,6 +50,9 @@ public class RoadmapDraftValidator {
                     + generation.maxPrerequisites() + " prerequisites but got " + size);
         }
 
+        if (prerequisites.stream().anyMatch(java.util.Objects::isNull)) {
+            throw new InvalidDraftException("Draft contains a null prerequisite");
+        }
         List<SanitizedPrerequisite> sanitized = prerequisites.stream()
                 .sorted(Comparator.comparingInt(PrerequisiteDraft::position))
                 .map(this::sanitizePrerequisite)

@@ -22,7 +22,7 @@ import java.util.HexFormat;
  * - only the SHA-256 hash is stored; the raw token exists client-side only
  * - every refresh rotates: the old token is revoked, a new one is issued
  * - presenting an already-revoked token is treated as theft (someone replayed a
- *   rotated token), so every session for that user is revoked
+ *   rotated token), so every refresh token for that user is revoked. Issued access JWTs expire normally.
  */
 @Service
 public class RefreshTokenService {

@@ -25,7 +25,7 @@ Most learning tools answer *"how do I learn X?"*. Uncomplex answers the question
 
 ### 2 · Claude builds your prerequisite path — validated, ordered, time-boxed
 
-One AI call produces 4–8 prerequisite concepts. Every concept explains **what it is** and **why it comes first**. Every resource link must survive a credibility allowlist (official docs, standards bodies, universities) before it's stored — a hallucinated URL can never reach you.
+One AI call produces 4–8 prerequisite concepts. Every concept explains **what it is** and **why it comes first**. Every resource link must survive a credibility allowlist (official docs, standards bodies, universities) before it's stored — this checks the domain, not whether the page exists or its content is accurate. Links are marked as unchecked until the scheduled liveness probe runs.
 
 <p align="center"><img src="docs/screenshots/roadmap.png" alt="Roadmap page: expandable prerequisite cards with explanations and credible resources" width="760"></p>
 
@@ -37,7 +37,7 @@ With an account, the roadmap becomes a checklist. Progress is per-user: share th
 
 ### 4 · Keep a library — and share any roadmap with a link
 
-Every roadmap gets a public URL like `/r/docker-qn9wb` that anyone can open, **no account needed**. Generating the same topic/level/goal twice never calls the AI twice — repeats are served from PostgreSQL in milliseconds.
+Every roadmap gets a public URL like `/r/docker-qn9wb` that anyone can open, **no account needed**. After successful generation, repeating the same topic/level/goal reuses the saved roadmap — repeats are served from PostgreSQL in milliseconds.
 
 <p align="center"><img src="docs/screenshots/library.png" alt="Library page listing saved roadmaps with progress bars" width="760"></p>
 
@@ -135,15 +135,15 @@ com.uncomplex
 2. **Schema-valid ≠ trustworthy.** `RoadmapDraftValidator` re-checks everything the schema can't express: 4–8 prerequisites, non-blank fields, clamped time estimates, ordering. Invalid output is retried once, then fails with a clean `502`.
 3. **AI-generated URLs are never trusted.** Every resource link must be `https` on a configurable allowlist of credible domains (official docs, standards bodies, `*.edu`). Anything else is silently dropped.
 
-**One AI call per (topic, level, goal) — ever.** Requests are normalized into a cache key (`rate-limiting|beginner|system_design_interview`) with a unique DB constraint. Repeat requests and shared-link opens are pure reads. A race between concurrent first requests is resolved by the constraint, not by locks.
+**Concurrent requests share generation.** Cached results are returned without locking. Cache misses acquire a transaction-scoped PostgreSQL advisory lock based on a SHA-256-derived 64-bit key, then recheck the cache. Local H2 uses exact-key JVM locks. Matching requests wait at most the configured lock budget (default one second), then receive a retryable 503. Library mutations use the same mechanism per user. Failed or rolled-back attempts may call the AI again. The previous shared 256-stripe table is no longer used.
 
 **Anonymous-first, accounts optional.** The unguessable share token *is* the access control for reading, so the product works with zero accounts. Accounts (stateless HS256 JWTs via Spring Security's resource-server support, BCrypt passwords) add a *library*: which roadmaps you follow and which nodes you've completed.
 
 **Users own membership and progress — never the roadmap.** Because roadmaps are cached and shared across users, letting one user edit a roadmap would corrupt it for everyone else reading it. So shared roadmaps are immutable; ownership is a `saved_roadmap` join row plus per-user `node_progress` rows. Deleting "your" roadmap removes it from your library without touching anyone else's.
 
-**Refresh tokens rotate, and reuse is treated as theft.** Login returns a short-lived JWT plus an opaque refresh token (only its SHA-256 hash is stored). Every refresh revokes the presented token and issues a new pair; replaying an already-rotated token is a theft signal, so *all* of that user's sessions are revoked. Login failures return the same 401 for unknown email and wrong password (no account enumeration).
+**Refresh tokens rotate, and reuse is treated as theft.** Login returns a short-lived JWT plus an opaque refresh token (only its SHA-256 hash is stored). Every refresh revokes the presented token and issues a new pair; replaying an already-rotated token is a theft signal, so all of that user's refresh tokens are revoked. Already-issued access JWTs remain valid until they expire. Login failures return the same 401 for unknown email and wrong password (no account enumeration).
 
-**Rate limiting is pluggable** (`app.rate-limit.store`): an in-memory Bucket4j token bucket for single-instance deployments (default), or a Redis fixed-window counter (atomic `INCR` + first-write `EXPIRE`) shared across replicas. The trade-off is documented in the code: the fixed window permits a brief boundary burst but keeps the hot path to one round trip.
+**Rate limiting is pluggable** (`app.rate-limit.store`): an in-memory Bucket4j token bucket for single-instance deployments (default), or a Redis fixed-window counter (a Lua script that atomically increments the counter and sets its expiry) shared across replicas. The trade-off is documented in the code: the fixed window permits a brief boundary burst. Login and registration share a separate 30-attempt budget per client per 15 minutes. Counter outages return a retryable 503.
 
 **Dead links get caught after the fact.** The credibility allowlist filters URLs at generation time; a nightly scheduled job (`HEAD` probe, `GET` fallback) marks resources `reachable: true/false` in the API so a link that dies later is flagged instead of silently served.
 
@@ -168,11 +168,24 @@ com.uncomplex
 | `TOKEN_TTL_MINUTES` | `60` | Access-token lifetime |
 | `REFRESH_TOKEN_TTL_DAYS` | `30` | Refresh-token lifetime |
 | `GENERATIONS_PER_DAY` | `10` | Per-client generation limit |
+| `AUTH_ATTEMPTS_PER_WINDOW` | `30` | Combined login/register attempts per client per 15 minutes |
+| `TRUSTED_PROXY_HOPS` | `0` | Proxies between the app and the client, socket peer included. Preferred where proxy addresses are not published (Render) |
+| `TRUSTED_PROXY_CIDRS` | empty | Actual ingress proxy CIDRs; never outbound ranges. Alternative to hop counting |
+| `LOCK_WAIT_MILLIS` | `1000` | Maximum lock-acquisition wait before a retryable 503 (0..10000 ms) |
 | `RATE_LIMIT_STORE` | `memory` | `redis` for multi-replica deployments |
 | `LINK_HEALTH_ENABLED` | `true` | Nightly resource-link liveness probing |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Comma-separated frontend origins |
 
 Deployment is codified in the repo: [`render.yaml`](render.yaml) (API + PostgreSQL Blueprint) and [`frontend/vercel.json`](frontend/vercel.json) (SPA rewrites).
+
+> **The database is on Render's free tier, which is deleted 30 days after creation.**
+> Recreated **2026-09-05**, so it expires around **2026-10-05**. When it goes, the API stops
+> booting: Flyway cannot connect, the context fails, and the container exits with status 1 —
+> which surfaces as hung requests rather than an HTTP error, because Render holds the
+> connection open waiting for an origin that never becomes ready. The instance already running
+> keeps serving until something forces a restart, so the outage can appear weeks after the
+> deletion. Upgrade to a paid instance to stop this recurring, or re-provision and let Flyway
+> rebuild the schema from V1 (all data is lost either way).
 
 ## Project roadmap
 
@@ -184,3 +197,31 @@ Deployment is codified in the repo: [`render.yaml`](render.yaml) (API + PostgreS
 - **Later** — per-node regeneration, FR/EN bilingual content, dependency graph view
 
 See [PROGRESS.md](PROGRESS.md) for the detailed checklist.
+
+### Reliability checks
+
+Run backend checks with `./mvnw verify`; run frontend checks with `npm test`,
+`npm run lint`, `npm run build`, and `npm run test:browser` from `frontend/` (install Chromium first with `npx playwright install chromium`). Concurrency regressions run
+against H2 locally and PostgreSQL with Testcontainers when Docker is available.
+The frontend API tests cover concurrent and cross-tab refresh, logout races,
+expired credentials on public requests, and temporary refresh failures.
+
+Behind a reverse proxy, identify the proxies one of two ways before deployment. Each proxy
+appends the peer it received from, so the client is always found by walking the forwarded
+chain from the right; entries further left are client-supplied and must never be trusted.
+
+- `TRUSTED_PROXY_HOPS` — the number of proxies between the app and the client, socket peer
+  included. Use this where the proxy addresses are not published. Render is such a case: it
+  does not document its ingress ranges, and all inbound traffic also passes through
+  Cloudflare. A forwarded chain shorter than the configured hop count falls back to the
+  socket peer rather than trusting a spoofable value.
+- `TRUSTED_PROXY_CIDRS` — the actual proxy ranges, walked right to left and stopping at the
+  first untrusted address. Use this where you control the proxies and know their addresses.
+
+Render deployments fail startup unless one of the two is set. Local and direct deployments
+may leave both unset, which ignores forwarded headers entirely. To determine the hop count,
+deploy once with `LOGGING_LEVEL_COM_UNCOMPLEX_RATELIMIT=DEBUG`, POST to `/api/roadmaps`, read
+the `x-forwarded-for` value in the logs, then turn DEBUG back off. See FIXES.md for
+verification limits.
+
+See [FIXES.md](FIXES.md) for the reliability change list.

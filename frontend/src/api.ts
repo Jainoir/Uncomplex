@@ -2,7 +2,7 @@
 // Access tokens are short-lived; on a 401 the client transparently rotates the
 // refresh token once and retries the original request.
 
-const BASE = import.meta.env.VITE_API_BASE_URL ?? ''
+const BASE = import.meta.env?.VITE_API_BASE_URL ?? ''
 
 export type ExperienceLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED'
 export type LearningGoal =
@@ -86,11 +86,13 @@ const store = {
     localStorage.setItem('uncomplex.access', auth.token)
     localStorage.setItem('uncomplex.refresh', auth.refreshToken)
     localStorage.setItem('uncomplex.email', auth.email)
+    window.dispatchEvent(new Event('uncomplex:auth'))
   },
   clear() {
     localStorage.removeItem('uncomplex.access')
     localStorage.removeItem('uncomplex.refresh')
     localStorage.removeItem('uncomplex.email')
+    window.dispatchEvent(new Event('uncomplex:auth'))
   },
 }
 
@@ -105,26 +107,56 @@ export class ApiError extends Error {
 async function raw(path: string, options: RequestInit = {}, withAuth = true): Promise<Response> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (withAuth && store.access) headers['Authorization'] = `Bearer ${store.access}`
-  return fetch(BASE + path, { ...options, headers })
+  try {
+    return await fetch(BASE + path, { ...options, headers,
+      signal: options.signal ?? AbortSignal.timeout(120_000) })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'TimeoutError') {
+      throw new ApiError(408, 'The request timed out. Please try again.')
+    }
+    throw error
+  }
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  let response = await raw(path, options)
+let refreshing: Promise<boolean> | null = null
 
-  // Expired access token? Rotate the refresh token once and retry.
-  if (response.status === 401 && store.refresh && !path.startsWith('/api/auth/')) {
-    const refreshed = await raw('/api/auth/refresh', {
-      method: 'POST',
-      body: JSON.stringify({ refreshToken: store.refresh }),
+async function refreshAccess(failedAccess: string | null): Promise<boolean> {
+  const rotate = async () => {
+    // Another request or tab may have already refreshed while this one waited.
+    if (store.access !== failedAccess) return store.access !== null
+    const token = store.refresh
+    if (!token) return false
+    const response = await raw('/api/auth/refresh', {
+      method: 'POST', body: JSON.stringify({ refreshToken: token }),
     }, false)
-    if (refreshed.ok) {
-      store.save(await refreshed.json())
-      response = await raw(path, options)
-    } else {
-      store.clear()
+    // A logout or new login during the request must not be overwritten.
+    if (store.refresh !== token) return store.access !== null
+    if (response.ok) {
+      const auth: AuthResponse = await response.json()
+      if (store.refresh !== token) return store.access !== null
+      store.save(auth)
+      return true
     }
+    if (response.status === 401) store.clear()
+    // Keep the session on transient server/network failures.
+    throw new ApiError(response.status, response.status === 401
+      ? 'Your session expired. Please log in again.'
+      : 'Could not renew your session. Please try again.')
   }
+  if (!refreshing) {
+    refreshing = (typeof navigator !== 'undefined' && navigator.locks
+      ? navigator.locks.request('uncomplex:refresh', rotate)
+      : rotate()).finally(() => { refreshing = null })
+  }
+  return refreshing
+}
 
+async function request<T>(path: string, options: RequestInit = {}, withAuth = true): Promise<T> {
+  const failedAccess = store.access
+  let response = await raw(path, options, withAuth)
+  if (withAuth && response.status === 401) {
+    if (await refreshAccess(failedAccess)) response = await raw(path, options, true)
+  }
   if (!response.ok) {
     let detail = `Request failed (${response.status})`
     try {
@@ -144,13 +176,13 @@ export const api = {
   async register(email: string, password: string) {
     store.save(await request<AuthResponse>('/api/auth/register', {
       method: 'POST', body: JSON.stringify({ email, password }),
-    }))
+    }, false))
   },
 
   async login(email: string, password: string) {
     store.save(await request<AuthResponse>('/api/auth/login', {
       method: 'POST', body: JSON.stringify({ email, password }),
-    }))
+    }, false))
   },
 
   async logout() {
@@ -170,7 +202,7 @@ export const api = {
   },
 
   getShared(shareToken: string) {
-    return request<Roadmap>(`/api/roadmaps/public/${shareToken}`)
+    return request<Roadmap>(`/api/roadmaps/public/${encodeURIComponent(shareToken)}`, {}, false)
   },
 
   myRoadmaps() {

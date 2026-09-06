@@ -19,6 +19,15 @@ class RoadmapDraftValidatorTest {
             new ResourceCredibilityService(TestFixtures.appProperties()));
 
     @Test
+    void rejectsNullPrerequisiteAsInvalidOutput() {
+        var valid = TestFixtures.draftWithPrerequisites(4);
+        var prerequisites = new java.util.ArrayList<>(valid.prerequisites());
+        prerequisites.set(1, null);
+        assertThatThrownBy(() -> validator.validate(new RoadmapDraft(valid.title(), valid.summary(), prerequisites)))
+                .isInstanceOf(InvalidDraftException.class);
+    }
+
+    @Test
     void acceptsAValidDraft() {
         var sanitized = validator.validate(TestFixtures.draftWithPrerequisites(5));
 

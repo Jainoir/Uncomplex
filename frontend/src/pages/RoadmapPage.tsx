@@ -4,15 +4,27 @@ import { api, ApiError, type Progress, type Roadmap, type RoadmapNode } from '..
 
 export default function RoadmapPage() {
   const { shareToken } = useParams<{ shareToken: string }>()
+  return <RoadmapContent key={shareToken} shareToken={shareToken} />
+}
+
+function RoadmapContent({ shareToken }: { shareToken: string | undefined }) {
   const [roadmap, setRoadmap] = useState<Roadmap | null>(null)
   const [progress, setProgress] = useState<Progress | null>(null)
   const [inLibrary, setInLibrary] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(true)
+  const [reload, setReload] = useState(0)
 
   useEffect(() => {
     if (!shareToken) return
     let cancelled = false
+    setError(null)
+    setActionError(null)
+    setProgress(null)
+    setInLibrary(false)
+    setBusy(true)
 
     async function load() {
       try {
@@ -21,13 +33,17 @@ export default function RoadmapPage() {
         setRoadmap(shared)
 
         if (api.isLoggedIn()) {
-          const mine = await api.myRoadmaps()
-          if (cancelled) return
-          const saved = mine.find(m => m.shareToken === shareToken)
-          if (saved) {
-            setInLibrary(true)
-            const withProgress = await api.myRoadmap(saved.roadmapId)
-            if (!cancelled) setProgress(withProgress.progress)
+          try {
+            const mine = await api.myRoadmaps()
+            if (cancelled) return
+            const saved = mine.find(m => m.shareToken === shareToken)
+            if (saved) {
+              setInLibrary(true)
+              const withProgress = await api.myRoadmap(saved.roadmapId)
+              if (!cancelled) setProgress(withProgress.progress)
+            }
+          } catch {
+            if (!cancelled) setActionError('The roadmap is available, but your saved progress could not be loaded. Please retry.')
           }
         }
       } catch (err) {
@@ -36,33 +52,47 @@ export default function RoadmapPage() {
             ? 'This roadmap does not exist (or the link is wrong).'
             : 'Could not load the roadmap. Please try again.')
         }
+      } finally {
+        if (!cancelled) setBusy(false)
       }
     }
 
     load()
     return () => { cancelled = true }
-  }, [shareToken])
+  }, [shareToken, reload])
+
+  async function perform(action: () => Promise<void>, message: string) {
+    setBusy(true)
+    setActionError(null)
+    try { await action() } catch { setActionError(message) } finally { setBusy(false) }
+  }
 
   async function handleSave() {
-    if (!shareToken) return
-    const saved = await api.saveToLibrary(shareToken)
-    setInLibrary(true)
-    setProgress(saved.progress)
+    if (!shareToken || busy) return
+    await perform(async () => {
+      const saved = await api.saveToLibrary(shareToken)
+      setInLibrary(true)
+      setProgress(saved.progress)
+    }, 'Could not save this roadmap. Please try again.')
   }
 
   async function toggleNode(node: RoadmapNode, completed: boolean) {
-    if (!roadmap || !progress) return
-    const updated = await api.setProgress(roadmap.id, node.id, completed)
-    setProgress(updated)
+    if (!roadmap || !progress || busy) return
+    await perform(async () => {
+      setProgress(await api.setProgress(roadmap.id, node.id, completed))
+    }, 'Could not update your progress. Please try again.')
   }
 
   async function copyLink() {
-    await navigator.clipboard.writeText(window.location.href)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setActionError('Could not copy the link. You can copy it from your browser address bar.')
+    }
   }
-
-  if (error) return <section className="roadmap"><p className="error">{error}</p></section>
+  if (error) return <section className="roadmap"><p className="error" role="alert">{error}</p><button onClick={() => setReload(n => n + 1)}>Retry</button></section>
   if (!roadmap) return <section className="roadmap"><p className="muted">Loading roadmap…</p></section>
 
   const hours = Math.floor(roadmap.estimatedTotalMinutes / 60)
@@ -71,6 +101,9 @@ export default function RoadmapPage() {
 
   return (
     <section className="roadmap">
+      {actionError && <div role="alert"><p className="error">{actionError}</p>
+        <button disabled={busy} onClick={() => setReload(n => n + 1)}>Reload saved progress</button>
+      </div>}
       <header className="roadmap-header">
         <h1>{roadmap.title}</h1>
         <p className="muted">{roadmap.summary}</p>
@@ -82,7 +115,7 @@ export default function RoadmapPage() {
         <div className="actions">
           <button onClick={copyLink}>{copied ? 'Copied!' : 'Copy sharing link'}</button>
           {api.isLoggedIn() && !inLibrary && (
-            <button className="secondary" onClick={handleSave}>Save to my library</button>
+            <button className="secondary" disabled={busy} onClick={handleSave}>Save to my library</button>
           )}
         </div>
 
@@ -100,6 +133,7 @@ export default function RoadmapPage() {
             key={node.id}
             node={node}
             trackable={progress !== null}
+            disabled={busy}
             completed={completedIds.has(node.id)}
             onToggle={toggleNode}
           />
@@ -109,9 +143,10 @@ export default function RoadmapPage() {
   )
 }
 
-function NodeCard({ node, trackable, completed, onToggle }: {
+function NodeCard({ node, trackable, completed, disabled, onToggle }: {
   node: RoadmapNode
   trackable: boolean
+  disabled: boolean
   completed: boolean
   onToggle: (node: RoadmapNode, completed: boolean) => void
 }) {
@@ -124,11 +159,12 @@ function NodeCard({ node, trackable, completed, onToggle }: {
           <input
             type="checkbox"
             checked={completed}
+            disabled={disabled}
             onChange={e => onToggle(node, e.target.checked)}
             aria-label={`Mark ${node.name} as ${completed ? 'not done' : 'done'}`}
           />
         )}
-        <button className="node-toggle" onClick={() => setOpen(!open)}>
+        <button className="node-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
           <span className="node-name">{node.position}. {node.name}</span>
           <span className="node-meta">{node.estimatedMinutes} min · {node.difficulty.toLowerCase()}</span>
         </button>
@@ -145,6 +181,7 @@ function NodeCard({ node, trackable, completed, onToggle }: {
                   <a href={r.url} target="_blank" rel="noreferrer">{r.title}</a>
                   <span className="badge">{r.sourceType.toLowerCase().replaceAll('_', ' ')}</span>
                   {r.reachable === false && <span className="badge dead">link may be down</span>}
+                  {r.reachable === null && <span className="badge">link not yet checked</span>}
                   <div className="muted small">{r.credibilityReason}</div>
                 </li>
               ))}
