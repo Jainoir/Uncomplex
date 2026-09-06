@@ -1,15 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Share+Tech+Mono&display=swap');
+
+/* ---------- neo-tokyo palette ----------
+   Deep violet-black ground, neon signage accents. Interactive elements glow;
+   static text does not, so the glow itself carries meaning. */
+
 :root {
-  --bg: #f7f7f9;
-  --surface: #ffffff;
-  --text: #1c1c28;
-  --muted: #6b7280;
-  --border: #e5e7eb;
-  --accent: #2563eb;
-  --accent-dark: #1d4ed8;
-  --danger: #dc2626;
-  --done: #16a34a;
-  --radius: 10px;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --bg: #07060d;
+  --bg-lift: #0c0a16;
+  --surface: #110e1e;
+  --surface-hi: #171331;
+  --text: #eae7f5;
+  --muted: #918cb4;
+  --border: #2b2450;
+  --border-hot: #3d3470;
+
+  --accent: #22e8ff;
+  --accent-dark: #00b8d4;
+  --accent-dim: rgba(34, 232, 255, 0.14);
+  --magenta: #ff3d8b;
+  --magenta-dim: rgba(255, 61, 139, 0.14);
+  --danger: #ff4d6d;
+  --danger-dim: rgba(255, 77, 109, 0.13);
+  --done: #45ffa8;
+
+  --radius: 3px;
+  --glow: 0 0 12px rgba(34, 232, 255, 0.45);
+  --display: 'Chakra Petch', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'Share Tech Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -21,7 +41,23 @@ body {
   line-height: 1.55;
 }
 
+/* Grid floor + horizon bloom. Fixed and inert so it never intercepts clicks. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 90% 55% at 50% -10%, rgba(34, 232, 255, 0.13), transparent 70%),
+    radial-gradient(ellipse 70% 50% at 85% 110%, rgba(255, 61, 139, 0.10), transparent 70%),
+    repeating-linear-gradient(to right, rgba(120, 100, 220, 0.05) 0 1px, transparent 1px 72px),
+    repeating-linear-gradient(to bottom, rgba(120, 100, 220, 0.05) 0 1px, transparent 1px 72px);
+}
+
 .shell {
+  position: relative;
+  z-index: 1;
   max-width: 760px;
   margin: 0 auto;
   padding: 0 1.25rem 3rem;
@@ -32,6 +68,10 @@ body {
 
 main { flex: 1; }
 
+h1, h2, h3 { font-family: var(--display); }
+
+::selection { background: var(--accent); color: #05040a; }
+
 /* ---------- top bar ---------- */
 
 .topbar {
@@ -39,14 +79,31 @@ main { flex: 1; }
   justify-content: space-between;
   align-items: center;
   padding: 1.1rem 0;
+  border-bottom: 1px solid var(--border);
 }
 
 .brand {
-  font-weight: 800;
+  font-family: var(--display);
+  font-weight: 700;
   font-size: 1.25rem;
   color: var(--text);
   text-decoration: none;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  position: relative;
+}
+/* Decorative only: aria-hidden by virtue of being a pseudo-element, so it never
+   reaches the accessibility tree or the tests that query by accessible name. */
+.brand::after {
+  content: 'アンコンプレックス';
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.52rem;
+  letter-spacing: 0.34em;
+  color: var(--accent);
+  opacity: 0.75;
+  margin-top: -0.28rem;
+  text-transform: none;
 }
 
 .topbar nav {
@@ -55,51 +112,76 @@ main { flex: 1; }
   gap: 1rem;
 }
 
-.topbar nav a { color: var(--accent); text-decoration: none; font-weight: 500; }
-.topbar nav a:hover { text-decoration: underline; }
-.user-email { color: var(--muted); font-size: 0.85rem; }
+.topbar nav a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.92rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.topbar nav a:hover { text-shadow: var(--glow); }
+.user-email { color: var(--muted); font-size: 0.85rem; font-family: var(--mono); }
 
 /* ---------- shared elements ---------- */
 
 .card {
-  background: var(--surface);
+  background: linear-gradient(160deg, var(--surface-hi), var(--surface));
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1.5rem;
+  /* Chamfered corner — the cheapest way to read as "panel" rather than "card". */
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
 }
 
 button {
   background: var(--accent);
-  color: #fff;
+  color: #04030a;
   border: 0;
-  border-radius: 8px;
+  border-radius: 2px;
   padding: 0.65rem 1.1rem;
-  font-size: 1rem;
+  font-family: var(--display);
+  font-size: 0.95rem;
   font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
+  transition: box-shadow 0.15s, background 0.15s;
 }
-button:hover { background: var(--accent-dark); }
-button:disabled { opacity: 0.6; cursor: default; }
+button:hover { background: #5cf2ff; box-shadow: var(--glow); }
+button:disabled { opacity: 0.4; cursor: default; box-shadow: none; background: var(--accent-dark); }
 button.secondary {
   background: transparent;
   color: var(--accent);
   border: 1px solid var(--accent);
 }
-button.secondary:hover { background: #eff6ff; }
+button.secondary:hover { background: var(--accent-dim); box-shadow: var(--glow); }
 
 .link-button {
   background: none;
   border: none;
   color: var(--accent);
+  font-family: inherit;
   font-weight: 500;
   font-size: 1rem;
+  letter-spacing: normal;
+  text-transform: none;
   padding: 0;
   cursor: pointer;
 }
-.link-button:hover { background: none; text-decoration: underline; }
+.link-button:hover { background: none; text-decoration: underline; box-shadow: none; }
 .link-button.danger { color: var(--danger); }
+.link-button.danger:hover { text-shadow: 0 0 10px rgba(255, 77, 109, 0.6); }
 
-label { display: block; font-weight: 600; font-size: 0.9rem; }
+label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-family: var(--display);
+}
 
 input, select {
   display: block;
@@ -107,14 +189,28 @@ input, select {
   margin-top: 0.3rem;
   padding: 0.6rem 0.7rem;
   font-size: 1rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--border-hot);
+  border-radius: 2px;
+  background: var(--bg-lift);
   color: var(--text);
 }
-input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+input:focus, select:focus {
+  outline: 1px solid var(--accent);
+  outline-offset: 0;
+  border-color: var(--accent);
+  box-shadow: 0 0 14px rgba(34, 232, 255, 0.3);
+}
 
-.error { color: var(--danger); font-weight: 500; }
+/* Errors read as magenta warning panels, not as another glowing accent —
+   in a neon theme, a colour alone stops signalling. */
+.error {
+  color: var(--danger);
+  font-weight: 500;
+  border-left: 3px solid var(--danger);
+  background: var(--danger-dim);
+  padding: 0.6rem 0.8rem;
+  border-radius: 2px;
+}
 .muted { color: var(--muted); }
 .small { font-size: 0.83rem; }
 .hint { color: var(--muted); font-size: 0.85rem; margin: 0.25rem 0 0; }
@@ -122,7 +218,16 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 0;
 /* ---------- landing ---------- */
 
 .landing { padding-top: 2.5rem; text-align: center; }
-.landing h1 { font-size: 2rem; letter-spacing: -0.02em; margin-bottom: 0.5rem; }
+.landing h1 {
+  font-size: 2.4rem;
+  letter-spacing: 0.01em;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  background: linear-gradient(96deg, var(--accent) 12%, #b98cff 54%, var(--magenta) 92%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
 .tagline { color: var(--muted); max-width: 34rem; margin: 0 auto 2rem; }
 
 .generate-form { text-align: left; display: flex; flex-direction: column; gap: 1.1rem; }
@@ -144,14 +249,14 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 0;
   padding: 0.5rem 0.75rem;
   font-weight: 600;
 }
-.tab:hover { background: none; color: var(--text); }
-.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab:hover { background: none; color: var(--text); box-shadow: none; }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); text-shadow: var(--glow); }
 
 /* ---------- roadmap ---------- */
 
 .roadmap { padding-top: 1.5rem; }
-.roadmap-header h1 { margin-bottom: 0.25rem; letter-spacing: -0.02em; }
-.meta { color: var(--muted); }
+.roadmap-header h1 { margin-bottom: 0.25rem; letter-spacing: 0.01em; }
+.meta { color: var(--muted); font-family: var(--mono); font-size: 0.88rem; }
 .actions { display: flex; gap: 0.75rem; margin: 1rem 0; }
 
 .progress-wrap {
@@ -161,28 +266,44 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 0;
   font-size: 0.85rem;
   color: var(--muted);
   margin-top: 0.5rem;
+  font-family: var(--mono);
 }
 .progress-bar {
   flex: 1;
   height: 8px;
-  background: var(--border);
-  border-radius: 999px;
+  background: var(--bg-lift);
+  border: 1px solid var(--border);
+  border-radius: 0;
   overflow: hidden;
 }
-.progress-bar > div { height: 100%; background: var(--done); transition: width 0.25s; }
+.progress-bar > div {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--done));
+  box-shadow: 0 0 12px rgba(69, 255, 168, 0.55);
+  transition: width 0.25s;
+}
 
 .node-list { list-style: none; padding: 0; margin: 1.5rem 0 0; display: flex; flex-direction: column; gap: 0.6rem; }
 
 .node {
   background: var(--surface);
   border: 1px solid var(--border);
+  border-left: 2px solid var(--border-hot);
   border-radius: var(--radius);
   padding: 0.4rem 1rem;
+  transition: border-color 0.15s, background 0.15s;
 }
+.node:hover { border-left-color: var(--accent); background: var(--surface-hi); }
+.node.done { border-left-color: var(--done); }
 .node.done .node-name { text-decoration: line-through; color: var(--muted); }
 
 .node-row { display: flex; align-items: center; gap: 0.75rem; }
-.node-row input[type="checkbox"] { width: 1.15rem; height: 1.15rem; margin: 0; accent-color: var(--done); }
+.node-row input[type="checkbox"] {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin: 0;
+  accent-color: var(--done);
+}
 
 .node-toggle {
   flex: 1;
@@ -194,11 +315,15 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 0;
   color: var(--text);
   padding: 0.6rem 0;
   text-align: left;
+  font-family: inherit;
   font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
 }
-.node-toggle:hover { background: none; }
-.node-name { font-weight: 600; }
-.node-meta { color: var(--muted); font-size: 0.83rem; white-space: nowrap; }
+.node-toggle:hover { background: none; box-shadow: none; }
+.node-toggle:hover .node-name { color: var(--accent); }
+.node-name { font-weight: 600; transition: color 0.15s; }
+.node-meta { color: var(--muted); font-size: 0.8rem; white-space: nowrap; font-family: var(--mono); }
 
 .node-detail { padding: 0 0 0.9rem 1.9rem; }
 .node-detail p { margin: 0.3rem 0; }
@@ -206,27 +331,43 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 0;
 
 .resources { list-style: none; padding: 0.4rem 0 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
 .resources a { color: var(--accent); font-weight: 500; }
+.resources a:hover { text-shadow: var(--glow); }
 
 .badge {
   display: inline-block;
   margin-left: 0.5rem;
   padding: 0.1rem 0.5rem;
-  border-radius: 999px;
-  background: #eff6ff;
-  color: var(--accent-dark);
-  font-size: 0.72rem;
-  font-weight: 600;
+  border-radius: 2px;
+  border: 1px solid var(--border-hot);
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   vertical-align: middle;
 }
-.badge.dead { background: #fef2f2; color: var(--danger); }
+/* Dead links must not read as just another neon chip. */
+.badge.dead {
+  background: var(--danger-dim);
+  border-color: var(--danger);
+  color: var(--danger);
+}
 
 /* ---------- library ---------- */
 
 .library { padding-top: 1.5rem; }
 .library-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; }
 .library-item { display: flex; flex-direction: column; gap: 0.4rem; padding: 1.1rem 1.25rem; }
-.library-title { font-weight: 700; font-size: 1.05rem; color: var(--text); text-decoration: none; }
-.library-title:hover { color: var(--accent); }
+.library-title {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text);
+  text-decoration: none;
+}
+.library-title:hover { color: var(--accent); text-shadow: var(--glow); }
 .library-item .link-button { align-self: flex-start; font-size: 0.85rem; }
 
 /* ---------- footer ---------- */
@@ -237,5 +378,12 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 0;
   border-top: 1px solid var(--border);
   color: var(--muted);
   font-size: 0.85rem;
+  font-family: var(--mono);
 }
 .footer a { color: var(--muted); }
+.footer a:hover { color: var(--accent); }
+
+/* Respect users who have asked for less motion or less flash. */
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
