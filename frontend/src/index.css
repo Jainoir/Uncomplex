@@ -370,6 +370,51 @@ input:focus, select:focus {
 .library-title:hover { color: var(--accent); text-shadow: var(--glow); }
 .library-item .link-button { align-self: flex-start; font-size: 0.85rem; }
 
+/* ---------- legal pages ---------- */
+
+.legal { padding-top: 1.5rem; max-width: 44rem; }
+.legal h1 { margin-bottom: 0.25rem; }
+.legal h2 {
+  font-size: 1.05rem;
+  margin: 2rem 0 0.5rem;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.legal p, .legal li { color: #cdc8e2; }
+.legal ul { padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.legal strong { color: var(--text); }
+.legal a { color: var(--accent); }
+
+/* The notice under the generate button — visible without shouting over the form. */
+.ai-notice {
+  border-left: 2px solid var(--border-hot);
+  padding-left: 0.7rem;
+  margin-top: 0.1rem;
+}
+.ai-notice a { color: var(--accent); }
+
+/* ---------- account deletion ---------- */
+
+.danger-zone {
+  margin-top: 3rem;
+  padding: 1.25rem;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  background: var(--danger-dim);
+}
+.danger-zone h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+  color: var(--danger);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.danger-zone p { margin: 0 0 0.9rem; }
+.danger-button { background: var(--danger); color: #17020a; }
+.danger-button:hover { background: #ff7089; box-shadow: 0 0 12px rgba(255, 77, 109, 0.5); }
+.danger-button:disabled { background: var(--danger); opacity: 0.45; }
+
 /* ---------- footer ---------- */
 
 .footer {
@@ -379,7 +424,12 @@ input:focus, select:focus {
   color: var(--muted);
   font-size: 0.85rem;
   font-family: var(--mono);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 1.5rem;
 }
+.footer-links { display: flex; gap: 1.1rem; flex-wrap: wrap; }
 .footer a { color: var(--muted); }
 .footer a:hover { color: var(--accent); }
 

@@ -9,6 +9,21 @@ export default function LibraryPage() {
   const [error, setError] = useState<string | null>(null)
   const [removing, setRemoving] = useState<number | null>(null)
   const [reload, setReload] = useState(0)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  async function handleDeleteAccount() {
+    setDeleting(true)
+    setError(null)
+    try {
+      await api.deleteAccount()
+      navigate('/')
+    } catch {
+      setError('Could not delete your account. Please try again.')
+      setDeleting(false)
+      setConfirmingDelete(false)
+    }
+  }
 
   useEffect(() => {
     if (!api.isLoggedIn()) {
@@ -78,6 +93,28 @@ export default function LibraryPage() {
           })}
         </ul>
       )}
+
+      <div className="danger-zone">
+        <h2>Delete my account</h2>
+        <p className="muted small">
+          Permanently erases your account, saved library, progress and sign-in tokens. This cannot be
+          undone. Roadmaps you generated stay public, because other people may have saved them.
+        </p>
+        {confirmingDelete ? (
+          <div className="actions">
+            <button className="danger-button" disabled={deleting} onClick={handleDeleteAccount}>
+              {deleting ? 'Deleting…' : 'Yes, delete everything'}
+            </button>
+            <button className="secondary" disabled={deleting} onClick={() => setConfirmingDelete(false)}>
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button className="danger-button" onClick={() => setConfirmingDelete(true)}>
+            Delete my account
+          </button>
+        )}
+      </div>
     </section>
   )
 }

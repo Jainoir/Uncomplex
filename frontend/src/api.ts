@@ -228,4 +228,13 @@ export const api = {
       method: 'PUT', body: JSON.stringify({ completed }),
     })
   },
+
+  /** Erases the account server-side, then clears local credentials either way. */
+  async deleteAccount() {
+    try {
+      await request<void>('/api/me', { method: 'DELETE' })
+    } finally {
+      store.clear()
+    }
+  },
 }
