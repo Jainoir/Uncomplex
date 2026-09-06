@@ -370,6 +370,49 @@ input:focus, select:focus {
 .library-title:hover { color: var(--accent); text-shadow: var(--glow); }
 .library-item .link-button { align-self: flex-start; font-size: 0.85rem; }
 
+/* ---------- generation progress ---------- */
+
+.generating {
+  border: 1px solid var(--border-hot);
+  border-radius: var(--radius);
+  background: var(--bg-lift);
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+/* Indeterminate on purpose: the server cannot report real progress, so a sweeping
+   bar says "working" without implying a percentage it does not know. */
+.generating-bar {
+  height: 3px;
+  background: var(--border);
+  overflow: hidden;
+  position: relative;
+}
+.generating-bar > div {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 38%;
+  background: linear-gradient(90deg, transparent, var(--accent), var(--magenta), transparent);
+  box-shadow: 0 0 10px rgba(34, 232, 255, 0.5);
+  animation: sweep 1.6s ease-in-out infinite;
+}
+@keyframes sweep {
+  0%   { left: -38%; }
+  100% { left: 100%; }
+}
+
+.generating-stage { margin: 0; font-size: 0.92rem; color: var(--text); }
+.generating-meta { margin: 0; display: flex; gap: 0.4rem; font-family: var(--mono); }
+.generating-topic { color: var(--accent); }
+.generating-note { margin: 0.15rem 0 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Keep a visible indicator, just a static one. */
+  .generating-bar > div { animation: none; left: 0; width: 100%; opacity: 0.55; }
+}
+
 /* ---------- legal pages ---------- */
 
 .legal { padding-top: 1.5rem; max-width: 44rem; }
