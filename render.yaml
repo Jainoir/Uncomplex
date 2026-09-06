@@ -1,12 +1,11 @@
-# Render Blueprint: deploys the API (Docker) + managed PostgreSQL in one step.
+# Render Blueprint: deploys the API (Docker). PostgreSQL is hosted on Neon.
 # In the Render dashboard: New > Blueprint > select this repo > Apply.
-# You will be prompted once for ANTHROPIC_API_KEY (it is never stored in the repo).
-
-databases:
-  - name: uncomplex-db
-    plan: free
-    databaseName: uncomplex
-    user: uncomplex
+# You are prompted once each for ANTHROPIC_API_KEY and the database credentials
+# (never stored in the repo).
+#
+# The database is deliberately not a Render resource. Render's free PostgreSQL is
+# deleted 30 days after creation, which silently broke this deployment once already.
+# Neon's free plan is permanent, so DB_URL points there instead.
 
 services:
   - type: web
@@ -15,26 +14,17 @@ services:
     plan: free
     healthCheckPath: /actuator/health
     envVars:
-      - key: DB_HOST
-        fromDatabase:
-          name: uncomplex-db
-          property: host
-      - key: DB_PORT
-        fromDatabase:
-          name: uncomplex-db
-          property: port
-      - key: DB_NAME
-        fromDatabase:
-          name: uncomplex-db
-          property: database
+      # Neon connection. Use the DIRECT endpoint, not the pooled one (its hostname
+      # contains "-pooler") -- Hikari is already a long-lived pool. Choose the region
+      # closest to this service (AWS us-west-2 for Render Oregon); a mismatched region
+      # costs tens of milliseconds on every query.
+      # Format: jdbc:postgresql://<host>/<database>?sslmode=require
+      - key: DB_URL
+        sync: false
       - key: DB_USERNAME
-        fromDatabase:
-          name: uncomplex-db
-          property: user
+        sync: false
       - key: DB_PASSWORD
-        fromDatabase:
-          name: uncomplex-db
-          property: password
+        sync: false
       - key: AI_PROVIDER
         value: anthropic
       - key: ANTHROPIC_API_KEY

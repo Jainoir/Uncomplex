@@ -6,15 +6,27 @@ spring:
   application:
     name: uncomplex
   datasource:
-    # Either set DB_URL directly, or let it compose from DB_HOST/DB_PORT/DB_NAME
-    # (Render's Blueprint exposes the database as separate properties)
+    # Either set DB_URL directly (managed providers give one connection string), or
+    # let it compose from DB_HOST/DB_PORT/DB_NAME.
     url: ${DB_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:uncomplex}}
     username: ${DB_USERNAME:uncomplex}
     password: ${DB_PASSWORD:uncomplex}
+    hikari:
+      # Serverless PostgreSQL suspends when idle and drops the connections it was
+      # holding. Keeping none idle avoids handing out a dead one on the next request;
+      # a lifetime under the provider's idle timeout keeps the pool ahead of it.
+      minimum-idle: ${DB_MIN_IDLE:0}
+      max-lifetime: ${DB_MAX_LIFETIME_MS:270000}
   jpa:
     hibernate:
       ddl-auto: none
     open-in-view: false
+    properties:
+      hibernate:
+        # Roadmap rendering walks every node's resources, which is one query per node
+        # without this. Batching collapses those into a handful of IN lookups -- worth
+        # far more once the database is a network hop away rather than local.
+        default_batch_fetch_size: 32
   flyway:
     enabled: true
 
