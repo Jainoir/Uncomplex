@@ -61,14 +61,25 @@ public class InMemoryRateLimiter implements RateLimiter {
 
     /**
      * Swept inline rather than on a timer: one pass per window, on whichever request happens
-     * to cross the boundary, so an idle process schedules nothing and holds no thread.
+     * to cross the boundary, so an idle process schedules nothing and holds no thread. The
+     * consequence is that cleanup is deferred — an entry that becomes eligible while no
+     * requests are arriving waits until traffic resumes.
+     *
+     * Each key is rechecked and removed inside computeIfPresent, which takes the same per-key
+     * lock as tryConsume's compute, so "is it expired" and "remove it" cannot straddle a
+     * concurrent refresh. entrySet().removeIf cannot do this: it guards removal on value
+     * identity via replaceNode(k, null, v), and Entry is mutated in place, so an entry
+     * refreshed mid-sweep still matches the captured value and is dropped anyway. The client
+     * then gets a brand-new full bucket and an extra allowance inside its own window.
      */
     private void sweepIfDue(Instant now) {
         long due = nextSweep.get();
         if (now.toEpochMilli() < due) return;
         if (!nextSweep.compareAndSet(due, now.toEpochMilli() + window.toMillis())) return;
         Instant cutoff = now.minus(window);
-        buckets.entrySet().removeIf(e -> e.getValue().lastSeen.isBefore(cutoff));
+        for (String key : buckets.keySet()) {
+            buckets.computeIfPresent(key, (k, entry) -> entry.lastSeen.isBefore(cutoff) ? null : entry);
+        }
     }
 
     /** Visible for tests: how many client identifiers are currently retained. */

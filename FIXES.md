@@ -116,3 +116,29 @@ each has a regression test except the Docker one, which is verified in CI instea
 Verification: 97 backend tests (9 new), 16 browser tests (5 new), 7 frontend API tests, lint
 and production build. PostgreSQL and Redis Testcontainers suites and the Compose check run in
 CI, not locally — Docker is unavailable here.
+
+### Follow-up: eviction race in the in-memory limiter
+
+The eviction added above introduced a concurrency bug, found by a second review.
+
+`entrySet().removeIf` on a `ConcurrentHashMap` guards removal with
+`replaceNode(k, null, v)` — remove only if the value is still the one the predicate saw.
+`Entry` is mutated in place, so an entry refreshed between the predicate and the removal
+still matched that value and was dropped anyway. The client's next request then built a
+brand-new full bucket, handing back an allowance it had already spent inside its own window.
+
+The sweep now rechecks and removes each key inside `computeIfPresent`, which takes the same
+per-key lock as `tryConsume`'s `compute`, so the expiry test and the removal cannot straddle
+a concurrent refresh.
+
+No regression test accompanies this one, deliberately. The harmful interleaving needs a
+refresh to land in the microseconds between `removeIf`'s predicate and its internal
+`replaceNode` call. Two attempts — a hand-advanced clock, then a real-time multi-threaded
+stress run — both passed against the known-broken implementation, which makes them worse
+than no test at all. The reviewer's reproduction needed reflection to pause the sweeping
+thread mid-call; that is a sound verification technique but too dependent on JDK internals
+to commit to CI. `computeIfPresent` closes the race by construction instead.
+
+The privacy page previously said counters are "discarded once a full limit window has
+passed". Cleanup actually runs on a later request, at most once per window, so an idle
+service keeps an eligible counter until traffic resumes. The page now says that.

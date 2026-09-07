@@ -70,8 +70,10 @@ export default function PrivacyPage() {
       <h2>How long it is kept</h2>
       <p>
         Account data is kept until you delete your account. Refresh tokens expire after 30 days, and
-        are revoked immediately on logout. A rate-limit counter is discarded once a full limit
-        window has passed with no further requests from that address. Generated roadmaps
+        are revoked immediately on logout. A rate-limit counter becomes eligible for deletion
+        once a full limit window has passed with no further requests from that address, and is
+        cleared during a later request; on a service sitting completely idle, an eligible
+        counter therefore waits until traffic resumes. Generated roadmaps
         are kept indefinitely, because they are shared content.
       </p>
 

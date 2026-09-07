@@ -60,6 +60,16 @@ class InMemoryRateLimiterTest {
         assertThat(limiter.tryConsume("198.51.100.1").allowed()).isTrue();
     }
 
+    /*
+     * Not covered here: the sweep/refresh race that entrySet().removeIf allowed. The harmful
+     * interleaving needs a refresh to land between removeIf's predicate and its internal
+     * replaceNode call — microseconds — so neither a hand-advanced clock nor a real-time
+     * stress run reproduces it. Both attempts passed against the known-broken implementation,
+     * which makes them worse than no test. computeIfPresent closes it by construction instead:
+     * the recheck and the removal run under the same per-key lock as tryConsume's compute, so
+     * no refresh can slip between them.
+     */
+
     @Test
     void retryAfterIsAtLeastOneSecond() {
         var limiter = limiter(1, Duration.ofHours(1));
