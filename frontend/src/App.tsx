@@ -50,7 +50,9 @@ export default function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/r/:shareToken" element={<RoadmapPage key={email ?? "anonymous"} />} />
           <Route path="/auth" element={<AuthPage onAuthed={() => setEmail(api.currentEmail())} />} />
-          <Route path="/library" element={<LibraryPage />} />
+          {/* Keyed on the account for the same reason as the roadmap route: a logout in
+              another tab must not leave the previous account's library on screen. */}
+          <Route path="/library" element={<LibraryPage key={email ?? "anonymous"} />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />
         </Routes>

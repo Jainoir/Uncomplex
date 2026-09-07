@@ -176,16 +176,14 @@ com.uncomplex
 | `LINK_HEALTH_ENABLED` | `true` | Nightly resource-link liveness probing |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Comma-separated frontend origins |
 
-Deployment is codified in the repo: [`render.yaml`](render.yaml) (API + PostgreSQL Blueprint) and [`frontend/vercel.json`](frontend/vercel.json) (SPA rewrites).
+Deployment is codified in the repo: [`render.yaml`](render.yaml) (API Blueprint) and [`frontend/vercel.json`](frontend/vercel.json) (SPA rewrites). The API runs on Render (Ohio); PostgreSQL is hosted on **Neon** and wired in through `DB_URL`, `DB_USERNAME` and `DB_PASSWORD`.
 
-> **The database is on Render's free tier, which is deleted 30 days after creation.**
-> Recreated **2026-09-05**, so it expires around **2026-10-05**. When it goes, the API stops
-> booting: Flyway cannot connect, the context fails, and the container exits with status 1 —
-> which surfaces as hung requests rather than an HTTP error, because Render holds the
-> connection open waiting for an origin that never becomes ready. The instance already running
-> keeps serving until something forces a restart, so the outage can appear weeks after the
-> deletion. Upgrade to a paid instance to stop this recurring, or re-provision and let Flyway
-> rebuild the schema from V1 (all data is lost either way).
+> **Why the database is not a Render resource.** Render's free PostgreSQL is deleted 30 days
+> after creation. That happened here: the instance already running kept serving until an
+> unrelated restart weeks later, at which point the container exited with status 1 because
+> Flyway could not connect — surfacing as hung requests rather than an HTTP error, since
+> Render holds the connection open waiting for an origin that never becomes ready. Neon's
+> free plan has no such expiry, so the database moved there.
 
 ## Project roadmap
 

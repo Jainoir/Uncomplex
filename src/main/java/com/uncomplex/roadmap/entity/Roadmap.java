@@ -28,7 +28,9 @@ public class Roadmap {
     private Long id;
 
     /** Normalized topic|level|goal key used to serve repeat requests without a new AI call. */
-    @Column(name = "cache_key", nullable = false, unique = true)
+    // 600 matches V5. The key is topic|context|level|goal with two 120-character free-text
+    // parts, so it can reach 266; the default length of 255 turned valid input into a 500.
+    @Column(name = "cache_key", nullable = false, unique = true, length = 600)
     private String cacheKey;
 
     @Column(name = "share_token", nullable = false, unique = true, length = 64)

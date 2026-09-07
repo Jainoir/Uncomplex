@@ -78,3 +78,41 @@ startup guard, and the bounds check.
 
 References: [Render DDoS/client IP guidance](https://render.com/articles/how-render-handles-ddos-attacks),
 [Cloudflare HTTP headers](https://developers.cloudflare.com/fundamentals/reference/http-headers/).
+
+## External audit follow-up — 6 September 2026
+
+An independent audit of commit `4077555` found eight issues. All are fixed on this branch;
+each has a regression test except the Docker one, which is verified in CI instead.
+
+- **Cache key overflowed its column.** `topic` and `context` each accept 120 characters, so
+  `topic|context|level|goal` reaches 266 against a `VARCHAR(255)` column — a 500 on input the
+  API had already accepted. V5 widens the column to 600 rather than hashing or truncating the
+  key, because changing the key format would orphan every roadmap already generated.
+- **Passwords between 73 and 100 characters returned 500.** BCrypt refuses more than 72
+  *bytes*, which a character count cannot express: 40 accented characters are 80 bytes. Added
+  a `@MaxUtf8Bytes` constraint so these are rejected as validation errors.
+- **Docker Compose mounted the wrong path for PostgreSQL 18.** 18 moved `PGDATA` to
+  `/var/lib/postgresql/18/docker`, so the volume belongs on `/var/lib/postgresql`; the old
+  `/var/lib/postgresql/data` mount left the real data directory in the container's writable
+  layer, where it did not survive recreation. Nobody working on this has Docker locally, which
+  is why it went unnoticed, so CI now starts the Compose database, writes a row, recreates the
+  container and reads the row back.
+- **Leaving during generation dragged the user back.** Navigation is now guarded by a mount
+  flag, and the progress note no longer claims that leaving cancels the request, which was
+  never true. The flag is set on mount as well as cleared on unmount — StrictMode runs effects
+  mount/cleanup/mount, and initialising it alone leaves it false forever.
+- **A failed account deletion destroyed the session.** Credentials were cleared in a `finally`,
+  so a transient 503 logged the user out of an account that still existed and the offered retry
+  required signing in first. They are now cleared on success, or on a 401.
+- **A logout in another tab left the previous library on screen.** The library route is keyed on
+  the account, like the roadmap route already was.
+- **The in-memory rate limiter never evicted anything.** Client addresses were retained for the
+  process lifetime, growing with unique visitors and contradicting the privacy policy. Entries
+  are now swept once a full window passes with no further requests from that address; the
+  privacy page describes the real behaviour.
+- **Long emails overflowed phone viewports.** The header wraps, the email truncates, and below
+  420px it is hidden. Regression tests assert no horizontal overflow at 320px and 390px.
+
+Verification: 97 backend tests (9 new), 16 browser tests (5 new), 7 frontend API tests, lint
+and production build. PostgreSQL and Redis Testcontainers suites and the Compose check run in
+CI, not locally — Docker is unavailable here.

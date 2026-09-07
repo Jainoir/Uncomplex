@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api, ApiError, type ExperienceLevel, type LearningGoal } from '../api'
 import GenerationProgress from '../components/GenerationProgress'
@@ -26,6 +26,18 @@ export default function LandingPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Navigating away while a generation is in flight must not yank the user back when it
+  // lands. Without this, starting a generation and then opening another page dumped you onto
+  // the roadmap up to a minute later, wherever you had gone.
+  // Set on mount as well as cleared on unmount: StrictMode runs effects mount/cleanup/mount,
+  // so initialising the ref alone leaves it false after the first cleanup and navigation
+  // never happens again.
+  const live = useRef(true)
+  useEffect(() => {
+    live.current = true
+    return () => { live.current = false }
+  }, [])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!topic.trim() || busy) return
@@ -33,11 +45,13 @@ export default function LandingPage() {
     setError(null)
     try {
       const roadmap = await api.generate(topic.trim(), context.trim(), level, goal)
-      navigate(`/r/${roadmap.shareToken}`)
+      if (live.current) navigate(`/r/${roadmap.shareToken}`)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.')
+      if (live.current) {
+        setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.')
+      }
     } finally {
-      setBusy(false)
+      if (live.current) setBusy(false)
     }
   }
 
