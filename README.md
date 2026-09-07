@@ -13,7 +13,7 @@
 
 Most learning tools answer *"how do I learn X?"*. Uncomplex answers the question that actually blocks people: *"why doesn't X make sense to me yet?"* — which is almost always **missing prerequisites**. The ordering is the product; the links are the bonus.
 
-**Jump to:** [How it works](#how-it-works) · [Tech stack](#tech-stack) · [Run it yourself](#run-it-yourself) · [API](#api) · [Architecture](#architecture) · [Design decisions](#design-decisions-and-why) · [Testing](#testing-strategy) · [Configuration](#configuration)
+**Jump to:** [How it works](#how-it-works) · [Tech stack](#tech-stack) · [Run it yourself](#run-it-yourself) · [API](#api) · [Architecture](#architecture) · [System design & patterns](#system-design-and-patterns) · [Design decisions](#design-decisions-and-why) · [Testing](#testing-strategy) · [Configuration](#configuration)
 
 ---
 
@@ -51,8 +51,8 @@ Every roadmap gets a public URL like `/r/docker-qn9wb` that anyone can open, **n
 | Data | PostgreSQL + Flyway migrations · Redis (distributed rate limiting) |
 | AI | Anthropic Claude API with **structured outputs** (JSON schema derived from Java records) |
 | Frontend | React 19 · TypeScript · Vite · React Router |
-| Testing | JUnit 5 · Mockito · MockMvc · Testcontainers (real PostgreSQL & Redis in CI) |
-| Ops | Docker · docker-compose · GitHub Actions · Render (API + DB) · Vercel (frontend) |
+| Testing | JUnit 5 · Mockito · MockMvc · Testcontainers (real PostgreSQL & Redis in CI) · Playwright |
+| Ops | Docker · Docker Compose · GitHub Actions · Render (API) · Neon (PostgreSQL) · Vercel (frontend) |
 
 ## Run it yourself
 
@@ -112,7 +112,17 @@ Errors follow RFC 9457 problem details (`400` validation, `404` unknown token, `
 
 ## Architecture
 
-Modular monolith — one Spring Boot application with strict package boundaries, so modules could be extracted later without a rewrite:
+A **modular monolith**: one Spring Boot API organized by feature, with a separate React frontend. Within the API, controllers handle HTTP, services coordinate business rules and transactions, and repositories handle persistence. This layered architecture keeps responsibilities clear while retaining a single backend deployment.
+
+```mermaid
+flowchart LR
+    Browser["React frontend · Vercel"] -->|HTTPS / JSON| API["Spring Boot API · Render"]
+    API -->|Roadmaps, accounts, progress| DB[("PostgreSQL · Neon")]
+    API -->|Generation on cache miss| AI["Anthropic Claude API"]
+    API -.->|Optional shared rate limits| Redis[("Redis")]
+```
+
+Backend package layout:
 
 ```
 com.uncomplex
@@ -127,6 +137,32 @@ com.uncomplex
 └── exception    RFC 9457 problem-detail handling
 ```
 
+## System design and patterns
+
+The implementation applies these concepts to concrete problems: avoiding repeated AI costs, keeping concurrent updates consistent, and separating shared content from each user's state.
+
+### System design
+
+| Concept | Application in Uncomplex | Implementation |
+|---|---|---|
+| **Cache-aside** | Look up a normalized topic/context/experience/goal key in PostgreSQL before generating. Persist successful results for reuse. | [RoadmapService](src/main/java/com/uncomplex/roadmap/service/RoadmapService.java) |
+| **Concurrency control** | Transaction-scoped PostgreSQL advisory locks coordinate cache misses across API instances. Recheck the cache after acquiring the lock; return a retryable `503` when the wait budget expires. | [DatabaseMutex](src/main/java/com/uncomplex/config/DatabaseMutex.java) |
+| **Relational modeling and ownership** | Shared roadmaps have separate library membership and progress rows per user. Removing a saved roadmap leaves other users' data intact. | [Library entities](src/main/java/com/uncomplex/library/entity) |
+| **Idempotency and transactions** | Repeating a save or setting a node to the same completion state has the same effect. Per-user locking and database constraints protect concurrent mutations. | [LibraryService](src/main/java/com/uncomplex/library/service/LibraryService.java), [migrations](src/main/resources/db/migration) |
+| **Distributed rate limiting** | The optional Redis implementation shares quotas across replicas and uses an atomic Lua script to update counters and expiry together. | [RedisRateLimiter](src/main/java/com/uncomplex/ratelimit/RedisRateLimiter.java) |
+
+### Design patterns
+
+| Pattern | Application in Uncomplex | Implementation |
+|---|---|---|
+| **Strategy** | Interchangeable AI generators (Anthropic or deterministic mock) and rate limiters (in-memory or Redis) implement common interfaces. | [AiRoadmapGenerator](src/main/java/com/uncomplex/ai/AiRoadmapGenerator.java), [RateLimiter](src/main/java/com/uncomplex/ratelimit/RateLimiter.java) |
+| **Dependency injection** | Spring selects and injects configured implementations through constructors, allowing services to be tested with substitutes. | [AiConfig](src/main/java/com/uncomplex/config/AiConfig.java), [RoadmapService](src/main/java/com/uncomplex/roadmap/service/RoadmapService.java) |
+| **Repository** | Spring Data repositories encapsulate persistence queries used by the service layer. | [RoadmapRepository](src/main/java/com/uncomplex/roadmap/repository/RoadmapRepository.java) |
+| **Adapter** | The Anthropic implementation translates the application's generation interface into SDK calls and maps provider failures to application exceptions. | [AnthropicRoadmapGenerator](src/main/java/com/uncomplex/ai/AnthropicRoadmapGenerator.java) |
+| **DTO and Mapper** | Dedicated request/response records and explicit mapping keep the public JSON contract separate from JPA entities. | [Roadmap DTOs](src/main/java/com/uncomplex/roadmap/dto), [RoadmapMapper](src/main/java/com/uncomplex/roadmap/mapper/RoadmapMapper.java) |
+
+The [design decisions below](#design-decisions-and-why) explain the trade-offs. [PostgreSQL concurrency tests](src/test/java/com/uncomplex/PostgresConcurrencyIntegrationTest.java) and [Redis integration tests](src/test/java/com/uncomplex/ratelimit/RedisRateLimitIntegrationTest.java) exercise the production implementations in [CI](.github/workflows/ci.yml).
+
 ## Design decisions (and why)
 
 **The AI is treated as an untrusted dependency.** This is the load-bearing design choice:
@@ -135,9 +171,9 @@ com.uncomplex
 2. **Schema-valid ≠ trustworthy.** `RoadmapDraftValidator` re-checks everything the schema can't express: 4–8 prerequisites, non-blank fields, clamped time estimates, ordering. Invalid output is retried once, then fails with a clean `502`.
 3. **AI-generated URLs are never trusted.** Every resource link must be `https` on a configurable allowlist of credible domains (official docs, standards bodies, `*.edu`). Anything else is silently dropped.
 
-**Concurrent requests share generation.** Cached results are returned without locking. Cache misses acquire a transaction-scoped PostgreSQL advisory lock based on a SHA-256-derived 64-bit key, then recheck the cache. Local H2 uses exact-key JVM locks. Matching requests wait at most the configured lock budget (default one second), then receive a retryable 503. Library mutations use the same mechanism per user. Failed or rolled-back attempts may call the AI again. The previous shared 256-stripe table is no longer used.
+**Cache misses coordinate before generation.** Cached results are returned without locking. Cache misses acquire a transaction-scoped PostgreSQL advisory lock based on a SHA-256-derived 64-bit key, then recheck the cache. Local H2 uses exact-key JVM locks. Matching requests wait at most the configured lock budget (default one second), then receive a retryable 503 if the lock is still held. Library mutations use the same mechanism per user. Failed or rolled-back attempts may call the AI again.
 
-**Anonymous-first, accounts optional.** The unguessable share token *is* the access control for reading, so the product works with zero accounts. Accounts (stateless HS256 JWTs via Spring Security's resource-server support, BCrypt passwords) add a *library*: which roadmaps you follow and which nodes you've completed.
+**Anonymous-first, accounts optional.** Roadmaps are public and addressed by share tokens, so anyone with a link can read one without signing in. Accounts (stateless HS256 JWTs via Spring Security's resource-server support, BCrypt passwords) add a *library*: which roadmaps you follow and which nodes you've completed.
 
 **Users own membership and progress — never the roadmap.** Because roadmaps are cached and shared across users, letting one user edit a roadmap would corrupt it for everyone else reading it. So shared roadmaps are immutable; ownership is a `saved_roadmap` join row plus per-user `node_progress` rows. Deleting "your" roadmap removes it from your library without touching anyone else's.
 
@@ -147,7 +183,7 @@ com.uncomplex
 
 **Dead links get caught after the fact.** The credibility allowlist filters URLs at generation time; a nightly scheduled job (`HEAD` probe, `GET` fallback) marks resources `reachable: true/false` in the API so a link that dies later is flagged instead of silently served.
 
-**Why not microservices/Kafka/Kubernetes?** One team, one database, one deployable. The module boundaries keep extraction possible; the operational cost of distribution buys nothing at this scale.
+**Why a monolith?** One team, one database, one backend deployable. Feature packages keep the code navigable, and shared transactions simplify consistency. Splitting services would add network failure modes and deployment overhead without addressing a current product need.
 
 ## Testing strategy
 
@@ -155,7 +191,9 @@ com.uncomplex
 |---|---|---|
 | Unit | JUnit 5 + Mockito | Validator rules, allowlist edge cases (incl. suffix-spoofed domains), cache-hit short-circuits the AI call, retry-then-fail behavior |
 | Integration | `@SpringBootTest` + MockMvc + H2 | Full HTTP flows: generate → share → open link, auth journeys, refresh rotation + reuse detection, progress tracking, validation errors, 429 rate limiting |
-| Real infrastructure | Testcontainers | Flyway migrations + JPA mappings against actual PostgreSQL; the Redis rate limiter against actual Redis (auto-skipped without Docker, run in CI) |
+| Real infrastructure | Testcontainers | Flyway migrations, JPA mappings, and concurrency against actual PostgreSQL; rate limiting against actual Redis (auto-skipped without Docker, run in CI) |
+| Frontend | API regression tests + Playwright | Token refresh coordination, recovery from failed requests, generation flows, navigation, and responsive layouts |
+| Deployment persistence | Docker Compose in CI | Database data survives container recreation with the configured volume |
 
 ## Configuration
 
@@ -191,7 +229,7 @@ Deployment is codified in the repo: [`render.yaml`](render.yaml) (API Blueprint)
 - ~~**Milestone 2** — JWT authentication, saved-roadmap library, per-node progress tracking~~ ✅
 - ~~**Milestone 3** — refresh token rotation with reuse detection, Redis-backed rate limiting, scheduled link liveness checking~~ ✅
 - ~~**Milestone 4** — React/TypeScript frontend (landing, roadmap + progress, shared view, auth, library)~~ ✅
-- ~~**Deployed** — API + PostgreSQL on Render, frontend on Vercel~~ ✅
+- ~~**Deployed** — API on Render, PostgreSQL on Neon, frontend on Vercel~~ ✅
 - **Later** — per-node regeneration, FR/EN bilingual content, dependency graph view
 
 See [PROGRESS.md](PROGRESS.md) for the detailed checklist.
