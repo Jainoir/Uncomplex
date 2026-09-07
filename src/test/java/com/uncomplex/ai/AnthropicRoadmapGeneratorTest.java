@@ -17,7 +17,7 @@ class AnthropicRoadmapGeneratorTest {
         when(client.messages().create(any(StructuredMessageCreateParams.class)))
                 .thenThrow(new AnthropicIoException("timeout"));
         var generator = new AnthropicRoadmapGenerator(client, TestFixtures.appProperties());
-        assertThatThrownBy(() -> generator.generate("Docker", ExperienceLevel.BEGINNER, LearningGoal.BUILD_A_PROJECT))
+        assertThatThrownBy(() -> generator.generate("Docker", null, ExperienceLevel.BEGINNER, LearningGoal.BUILD_A_PROJECT))
                 .isInstanceOf(AiGenerationException.class).hasCauseInstanceOf(AnthropicIoException.class);
     }
 }
