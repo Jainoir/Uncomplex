@@ -8,7 +8,11 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # PostgreSQL 18 moved PGDATA to /var/lib/postgresql/18/docker, so the volume belongs
+      # on the parent directory. Mounting /var/lib/postgresql/data -- correct for 17 and
+      # earlier -- leaves the real data directory inside the container's writable layer,
+      # where it does not survive the container being recreated.
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U uncomplex"]
       interval: 5s

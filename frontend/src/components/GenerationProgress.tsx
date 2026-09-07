@@ -38,7 +38,8 @@ export default function GenerationProgress({ topic }: { topic: string }) {
       {elapsed >= 25 && (
         <p className="muted small generating-note">
           A real model call runs behind this, so it usually lands between 30 and 60 seconds.
-          Leaving the page cancels it.
+          You can leave this page — it will not pull you back, and the roadmap is still saved
+          if you search for it again.
         </p>
       )}
     </div>

@@ -78,3 +78,67 @@ startup guard, and the bounds check.
 
 References: [Render DDoS/client IP guidance](https://render.com/articles/how-render-handles-ddos-attacks),
 [Cloudflare HTTP headers](https://developers.cloudflare.com/fundamentals/reference/http-headers/).
+
+## External audit follow-up — 6 September 2026
+
+An independent audit of commit `4077555` found eight issues. All are fixed on this branch;
+each has a regression test except the Docker one, which is verified in CI instead.
+
+- **Cache key overflowed its column.** `topic` and `context` each accept 120 characters, so
+  `topic|context|level|goal` reaches 266 against a `VARCHAR(255)` column — a 500 on input the
+  API had already accepted. V5 widens the column to 600 rather than hashing or truncating the
+  key, because changing the key format would orphan every roadmap already generated.
+- **Passwords between 73 and 100 characters returned 500.** BCrypt refuses more than 72
+  *bytes*, which a character count cannot express: 40 accented characters are 80 bytes. Added
+  a `@MaxUtf8Bytes` constraint so these are rejected as validation errors.
+- **Docker Compose mounted the wrong path for PostgreSQL 18.** 18 moved `PGDATA` to
+  `/var/lib/postgresql/18/docker`, so the volume belongs on `/var/lib/postgresql`; the old
+  `/var/lib/postgresql/data` mount left the real data directory in the container's writable
+  layer, where it did not survive recreation. Nobody working on this has Docker locally, which
+  is why it went unnoticed, so CI now starts the Compose database, writes a row, recreates the
+  container and reads the row back.
+- **Leaving during generation dragged the user back.** Navigation is now guarded by a mount
+  flag, and the progress note no longer claims that leaving cancels the request, which was
+  never true. The flag is set on mount as well as cleared on unmount — StrictMode runs effects
+  mount/cleanup/mount, and initialising it alone leaves it false forever.
+- **A failed account deletion destroyed the session.** Credentials were cleared in a `finally`,
+  so a transient 503 logged the user out of an account that still existed and the offered retry
+  required signing in first. They are now cleared on success, or on a 401.
+- **A logout in another tab left the previous library on screen.** The library route is keyed on
+  the account, like the roadmap route already was.
+- **The in-memory rate limiter never evicted anything.** Client addresses were retained for the
+  process lifetime, growing with unique visitors and contradicting the privacy policy. Entries
+  are now swept once a full window passes with no further requests from that address; the
+  privacy page describes the real behaviour.
+- **Long emails overflowed phone viewports.** The header wraps, the email truncates, and below
+  420px it is hidden. Regression tests assert no horizontal overflow at 320px and 390px.
+
+Verification: 97 backend tests (9 new), 16 browser tests (5 new), 7 frontend API tests, lint
+and production build. PostgreSQL and Redis Testcontainers suites and the Compose check run in
+CI, not locally — Docker is unavailable here.
+
+### Follow-up: eviction race in the in-memory limiter
+
+The eviction added above introduced a concurrency bug, found by a second review.
+
+`entrySet().removeIf` on a `ConcurrentHashMap` guards removal with
+`replaceNode(k, null, v)` — remove only if the value is still the one the predicate saw.
+`Entry` is mutated in place, so an entry refreshed between the predicate and the removal
+still matched that value and was dropped anyway. The client's next request then built a
+brand-new full bucket, handing back an allowance it had already spent inside its own window.
+
+The sweep now rechecks and removes each key inside `computeIfPresent`, which takes the same
+per-key lock as `tryConsume`'s `compute`, so the expiry test and the removal cannot straddle
+a concurrent refresh.
+
+No regression test accompanies this one, deliberately. The harmful interleaving needs a
+refresh to land in the microseconds between `removeIf`'s predicate and its internal
+`replaceNode` call. Two attempts — a hand-advanced clock, then a real-time multi-threaded
+stress run — both passed against the known-broken implementation, which makes them worse
+than no test at all. The reviewer's reproduction needed reflection to pause the sweeping
+thread mid-call; that is a sound verification technique but too dependent on JDK internals
+to commit to CI. `computeIfPresent` closes the race by construction instead.
+
+The privacy page previously said counters are "discarded once a full limit window has
+passed". Cleanup actually runs on a later request, at most once per window, so an idle
+service keeps an eligible counter until traffic resumes. The page now says that.

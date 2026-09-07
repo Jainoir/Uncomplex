@@ -31,6 +31,48 @@ jobs:
           name: surefire-reports
           path: target/surefire-reports
 
+  # The documented "docker compose up" path is otherwise never exercised: nobody developing
+  # this has Docker locally, so a wrong volume mount stayed invisible. This proves the
+  # database initialises AND that its data survives the container being recreated, which is
+  # the part a misplaced PGDATA mount silently breaks.
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start the database
+        run: docker compose up -d db
+
+      - name: Wait for it to become healthy
+        run: |
+          for i in $(seq 1 60); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' "$(docker compose ps -q db)")
+            [ "$status" = "healthy" ] && exit 0
+            [ "$status" = "unhealthy" ] && { docker compose logs db; exit 1; }
+            sleep 2
+          done
+          docker compose logs db
+          exit 1
+
+      - name: Write a row, recreate the container, and read it back
+        run: |
+          docker compose exec -T db psql -U uncomplex -d uncomplex \
+            -c "create table persistence_probe (id int primary key); insert into persistence_probe values (1);"
+          docker compose down
+          docker compose up -d db
+          for i in $(seq 1 60); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' "$(docker compose ps -q db)")
+            [ "$status" = "healthy" ] && break
+            sleep 2
+          done
+          rows=$(docker compose exec -T db psql -U uncomplex -d uncomplex -tAc "select count(*) from persistence_probe;")
+          echo "rows after recreate: $rows"
+          [ "$rows" = "1" ] || { echo "data did not survive -- the volume is mounted at the wrong path"; docker compose logs db; exit 1; }
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+
   frontend:
     runs-on: ubuntu-latest
     defaults:

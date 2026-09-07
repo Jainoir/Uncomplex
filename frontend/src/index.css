@@ -78,8 +78,14 @@ h1, h2, h3 { font-family: var(--display); }
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0.5rem 1rem;
+  flex-wrap: wrap;
   padding: 1.1rem 0;
   border-bottom: 1px solid var(--border);
+  /* A long signed-in email pushed the header past the viewport on phones, taking the whole
+     document with it. min-width:0 lets the nav shrink; the email truncates rather than
+     forcing the row wider than the screen. */
+  min-width: 0;
 }
 
 .brand {
@@ -109,7 +115,10 @@ h1, h2, h3 { font-family: var(--display); }
 .topbar nav {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.5rem 1rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
 }
 
 .topbar nav a {
@@ -121,7 +130,21 @@ h1, h2, h3 { font-family: var(--display); }
   text-transform: uppercase;
 }
 .topbar nav a:hover { text-shadow: var(--glow); }
-.user-email { color: var(--muted); font-size: 0.85rem; font-family: var(--mono); }
+.user-email {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-family: var(--mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 40vw;
+  min-width: 0;
+}
+@media (max-width: 420px) {
+  /* Below this the email is the widest thing on the page and pushes everything sideways;
+     the account is still identifiable from the library and the log-out control. */
+  .user-email { display: none; }
+}
 
 /* ---------- shared elements ---------- */
 

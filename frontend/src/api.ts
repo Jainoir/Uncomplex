@@ -229,12 +229,18 @@ export const api = {
     })
   },
 
-  /** Erases the account server-side, then clears local credentials either way. */
+  /**
+   * Clears credentials only once the account is actually gone, or when the server says the
+   * session is invalid. Clearing on every failure logged people out of an account that still
+   * existed, so the retry the UI offered them required signing in again first.
+   */
   async deleteAccount() {
     try {
       await request<void>('/api/me', { method: 'DELETE' })
-    } finally {
-      store.clear()
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) store.clear()
+      throw err
     }
+    store.clear()
   },
 }
