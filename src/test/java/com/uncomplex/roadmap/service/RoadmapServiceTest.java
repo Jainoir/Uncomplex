@@ -52,11 +52,11 @@ class RoadmapServiceTest {
         when(repository.findByCacheKey("rate-limiting|beginner|system_design_interview"))
                 .thenReturn(Optional.of(cached));
 
-        Roadmap result = service.getOrGenerate("Rate Limiting",
+        Roadmap result = service.getOrGenerate("Rate Limiting", null,
                 ExperienceLevel.BEGINNER, LearningGoal.SYSTEM_DESIGN_INTERVIEW);
 
         assertThat(result).isSameAs(cached);
-        verify(generator, never()).generate(anyString(), any(), any());
+        verify(generator, never()).generate(anyString(), any(), any(), any());
     }
 
     @Test
@@ -64,26 +64,26 @@ class RoadmapServiceTest {
         when(repository.findByCacheKey(anyString())).thenReturn(Optional.empty());
         when(repository.existsByShareToken(anyString())).thenReturn(false);
         when(repository.saveAndFlush(any(Roadmap.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(generator.generate(anyString(), any(), any()))
+        when(generator.generate(anyString(), any(), any(), any()))
                 .thenReturn(TestFixtures.draftWithPrerequisites(2))   // invalid: too few
                 .thenReturn(TestFixtures.draftWithPrerequisites(5));  // valid on retry
 
-        Roadmap result = service.getOrGenerate("Docker", ExperienceLevel.BEGINNER, LearningGoal.BUILD_A_PROJECT);
+        Roadmap result = service.getOrGenerate("Docker", null, ExperienceLevel.BEGINNER, LearningGoal.BUILD_A_PROJECT);
 
         assertThat(result.getNodes()).hasSize(5);
-        verify(generator, times(2)).generate(anyString(), any(), any());
+        verify(generator, times(2)).generate(anyString(), any(), any(), any());
     }
 
     @Test
     void repeatedlyInvalidOutputFailsAfterMaxAttempts() {
         when(repository.findByCacheKey(anyString())).thenReturn(Optional.empty());
-        when(generator.generate(anyString(), any(), any()))
+        when(generator.generate(anyString(), any(), any(), any()))
                 .thenReturn(TestFixtures.draftWithPrerequisites(1));
 
         assertThatThrownBy(() ->
-                service.getOrGenerate("Docker", ExperienceLevel.BEGINNER, LearningGoal.BUILD_A_PROJECT))
+                service.getOrGenerate("Docker", null, ExperienceLevel.BEGINNER, LearningGoal.BUILD_A_PROJECT))
                 .isInstanceOf(InvalidDraftException.class);
-        verify(generator, times(2)).generate(anyString(), any(), any());
+        verify(generator, times(2)).generate(anyString(), any(), any(), any());
     }
 
     @Test
@@ -91,10 +91,10 @@ class RoadmapServiceTest {
         when(repository.findByCacheKey(anyString())).thenReturn(Optional.empty());
         when(repository.existsByShareToken(anyString())).thenReturn(false);
         when(repository.saveAndFlush(any(Roadmap.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(generator.generate(anyString(), any(), any()))
+        when(generator.generate(anyString(), any(), any(), any()))
                 .thenReturn(TestFixtures.draftWithPrerequisites(4)); // 4 x 30 minutes
 
-        Roadmap result = service.getOrGenerate("Docker", ExperienceLevel.BEGINNER, LearningGoal.BUILD_A_PROJECT);
+        Roadmap result = service.getOrGenerate("Docker", null, ExperienceLevel.BEGINNER, LearningGoal.BUILD_A_PROJECT);
 
         assertThat(result.getEstimatedTotalMinutes()).isEqualTo(120);
     }

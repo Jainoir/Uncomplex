@@ -27,6 +27,18 @@ public class AnthropicRoadmapGenerator implements AiRoadmapGenerator {
             Given a topic, the learner's experience level, and their goal, list the concepts \
             they should understand BEFORE studying the topic itself, in learning order.
 
+            Many topics mean different things in different fields — "integration" is CI/CD to
+            one reader and REST APIs to another. Resolve the ambiguity explicitly:
+
+            - If a field is given, interpret the topic strictly within that field.
+            - If none is given, choose the most common software-development reading.
+            - Either way, the title MUST name the interpretation you chose, not just echo the
+              topic. Write "Continuous Integration (automated build and test pipelines)",
+              never a bare "Integration". A reader who meant something else must be able to
+              tell at a glance that they did.
+            - Say in the summary which reading you took and, when the topic was ambiguous,
+              what the other common readings are.
+
             Rules:
             - Between 4 and 8 prerequisite concepts, most foundational first.
             - Only directly relevant prerequisites. Do not recurse into distant fundamentals \
@@ -52,14 +64,14 @@ public class AnthropicRoadmapGenerator implements AiRoadmapGenerator {
     }
 
     @Override
-    public RoadmapDraft generate(String topic, ExperienceLevel level, LearningGoal goal) {
+    public RoadmapDraft generate(String topic, String context, ExperienceLevel level, LearningGoal goal) {
         StructuredMessageCreateParams<RoadmapDraft> params = MessageCreateParams.builder()
                 .model(settings.model())
                 .maxTokens(settings.maxOutputTokens())
                 .thinking(ThinkingConfigAdaptive.builder().build())
                 .system(SYSTEM_PROMPT)
                 .outputConfig(RoadmapDraft.class)
-                .addUserMessage(userPrompt(topic, level, goal))
+                .addUserMessage(userPrompt(topic, context, level, goal))
                 .build();
 
         try {
@@ -77,13 +89,17 @@ public class AnthropicRoadmapGenerator implements AiRoadmapGenerator {
         }
     }
 
-    private String userPrompt(String topic, ExperienceLevel level, LearningGoal goal) {
+    private String userPrompt(String topic, String context, ExperienceLevel level, LearningGoal goal) {
+        String field = (context == null || context.isBlank())
+                ? "Field: not specified — infer the most common software meaning of the topic."
+                : "Field: %s — interpret the topic within this field.".formatted(context.trim());
         return """
                 Topic: %s
+                %s
                 Learner experience level: %s
                 Learning goal: %s
 
                 Build the prerequisite roadmap for this learner.
-                """.formatted(topic, level, goal);
+                """.formatted(topic, field, level, goal);
     }
 }

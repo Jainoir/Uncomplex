@@ -67,3 +67,42 @@ test('progress disappears and the error shows when generation fails', async ({ p
   await expect(page.getByRole('status')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Build my learning path' })).toBeEnabled()
 })
+
+test('the context field is sent so ambiguous topics can be disambiguated', async ({ page }) => {
+  const sent: Array<Record<string, unknown>> = []
+  await page.route('**/api/roadmaps', async route => {
+    if (route.request().method() !== 'POST') return route.fallback()
+    sent.push(route.request().postDataJSON())
+    await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(roadmap) })
+  })
+  await page.route('**/api/roadmaps/public/**', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(roadmap) }))
+
+  await page.goto('/')
+  await page.getByLabel('Topic', { exact: true }).fill('integration')
+  await page.getByLabel(/in the context of/i).fill('CI/CD pipelines')
+  await page.getByRole('button', { name: 'Build my learning path' }).click()
+  await expect(page.getByRole('heading', { name: 'Learn alpha' })).toBeVisible()
+
+  expect(sent).toHaveLength(1)
+  expect(sent[0].topic).toBe('integration')
+  expect(sent[0].context).toBe('CI/CD pipelines')
+})
+
+test('context is optional and submits as empty when untouched', async ({ page }) => {
+  const sent: Array<Record<string, unknown>> = []
+  await page.route('**/api/roadmaps', async route => {
+    if (route.request().method() !== 'POST') return route.fallback()
+    sent.push(route.request().postDataJSON())
+    await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(roadmap) })
+  })
+  await page.route('**/api/roadmaps/public/**', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(roadmap) }))
+
+  await page.goto('/')
+  await page.getByLabel('Topic', { exact: true }).fill('docker')
+  await page.getByRole('button', { name: 'Build my learning path' }).click()
+  await expect(page.getByRole('heading', { name: 'Learn alpha' })).toBeVisible()
+
+  expect(sent[0].context).toBe('')
+})

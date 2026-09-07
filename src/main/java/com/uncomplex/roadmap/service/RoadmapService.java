@@ -47,14 +47,14 @@ public class RoadmapService {
      * repeating a request never triggers a new AI call.
      */
     @Transactional
-    public Roadmap getOrGenerate(String topic, ExperienceLevel level, LearningGoal goal) {
-        String cacheKey = CacheKeys.of(topic, level, goal);
+    public Roadmap getOrGenerate(String topic, String context, ExperienceLevel level, LearningGoal goal) {
+        String cacheKey = CacheKeys.of(topic, context, level, goal);
         var cached = repository.findByCacheKey(cacheKey);
         if (cached.isPresent()) return initialized(cached.get());
         // Cache hits never wait. After locking a miss, recheck in case another request won.
         mutex.acquire("generation:" + cacheKey);
         return initialized(repository.findByCacheKey(cacheKey)
-                .orElseGet(() -> generateAndSave(cacheKey, topic, level, goal)));
+                .orElseGet(() -> generateAndSave(cacheKey, topic, context, level, goal)));
     }
 
     @Transactional(readOnly = true)
@@ -73,16 +73,16 @@ public class RoadmapService {
         return roadmap;
     }
 
-    private Roadmap generateAndSave(String cacheKey, String topic, ExperienceLevel level, LearningGoal goal) {
-        SanitizedDraft draft = generateWithRetry(topic, level, goal);
+    private Roadmap generateAndSave(String cacheKey, String topic, String context, ExperienceLevel level, LearningGoal goal) {
+        SanitizedDraft draft = generateWithRetry(topic, context, level, goal);
         Roadmap roadmap = toEntity(cacheKey, topic, level, goal, draft);
         return repository.saveAndFlush(roadmap);
     }
 
-    private SanitizedDraft generateWithRetry(String topic, ExperienceLevel level, LearningGoal goal) {
+    private SanitizedDraft generateWithRetry(String topic, String context, ExperienceLevel level, LearningGoal goal) {
         InvalidDraftException lastFailure = null;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            RoadmapDraft raw = generator.generate(topic, level, goal);
+            RoadmapDraft raw = generator.generate(topic, context, level, goal);
             try {
                 return validator.validate(raw);
             } catch (InvalidDraftException e) {

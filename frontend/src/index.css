@@ -370,6 +370,20 @@ input:focus, select:focus {
 .library-title:hover { color: var(--accent); text-shadow: var(--glow); }
 .library-item .link-button { align-self: flex-start; font-size: 0.85rem; }
 
+.label-optional {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 0 0.32rem;
+  margin-left: 0.45rem;
+  text-transform: lowercase;
+}
+.field { display: flex; flex-direction: column; }
+.field .hint { text-transform: none; letter-spacing: normal; font-weight: 400; }
+
 /* ---------- generation progress ---------- */
 
 .generating {

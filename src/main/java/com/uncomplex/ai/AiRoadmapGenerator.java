@@ -10,5 +10,5 @@ import com.uncomplex.roadmap.model.LearningGoal;
  */
 public interface AiRoadmapGenerator {
 
-    RoadmapDraft generate(String topic, ExperienceLevel level, LearningGoal goal);
+    RoadmapDraft generate(String topic, String context, ExperienceLevel level, LearningGoal goal);
 }

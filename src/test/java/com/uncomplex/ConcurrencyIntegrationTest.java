@@ -37,7 +37,7 @@ class ConcurrencyIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        when(generator.generate(anyString(), any(), any())).thenAnswer(invocation -> {
+        when(generator.generate(anyString(), any(), any(), any())).thenAnswer(invocation -> {
             Thread.sleep(100); // Widen the cache-miss race while the first request generates.
             return TestFixtures.draftWithPrerequisites(4);
         });
@@ -46,31 +46,31 @@ class ConcurrencyIntegrationTest {
     @Test
     void simultaneousCacheMissesGenerateOnlyOnce() throws Exception {
         String topic = "Concurrent " + UUID.randomUUID();
-        var results = concurrently(() -> roadmaps.getOrGenerate(topic, BEGINNER, BUILD_A_PROJECT).getId());
+        var results = concurrently(() -> roadmaps.getOrGenerate(topic, null, BEGINNER, BUILD_A_PROJECT).getId());
         assertThat(results.get(0)).isEqualTo(results.get(1));
-        verify(generator, times(1)).generate(topic, BEGINNER, BUILD_A_PROJECT);
+        verify(generator, times(1)).generate(topic, null, BEGINNER, BUILD_A_PROJECT);
     }
 
     @Test
     void slowGenerationDoesNotBlockAnotherKeyOnTheOldStripe() throws Exception {
         String slowTopic = "slow-" + UUID.randomUUID();
-        String slowKey = "generation:" + com.uncomplex.roadmap.service.CacheKeys.of(slowTopic, BEGINNER, BUILD_A_PROJECT);
+        String slowKey = "generation:" + com.uncomplex.roadmap.service.CacheKeys.of(slowTopic, null, BEGINNER, BUILD_A_PROJECT);
         String otherTopic = java.util.stream.IntStream.range(0, 10000).mapToObj(i -> "other-" + i)
-                .filter(topic -> Math.floorMod(("generation:" + com.uncomplex.roadmap.service.CacheKeys.of(topic,
+                .filter(topic -> Math.floorMod(("generation:" + com.uncomplex.roadmap.service.CacheKeys.of(topic, null,
                         BEGINNER, BUILD_A_PROJECT)).hashCode(), 256) == Math.floorMod(slowKey.hashCode(), 256))
                 .findFirst().orElseThrow();
         var started = new CountDownLatch(1);
         var release = new CountDownLatch(1);
-        when(generator.generate(eq(slowTopic), any(), any())).thenAnswer(invocation -> {
+        when(generator.generate(eq(slowTopic), any(), any(), any())).thenAnswer(invocation -> {
             started.countDown();
             if (!release.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("Release timeout");
             return TestFixtures.draftWithPrerequisites(4);
         });
         try (var executor = Executors.newFixedThreadPool(2)) {
-            var first = executor.submit(() -> roadmaps.getOrGenerate(slowTopic, BEGINNER, BUILD_A_PROJECT));
+            var first = executor.submit(() -> roadmaps.getOrGenerate(slowTopic, null, BEGINNER, BUILD_A_PROJECT));
             try {
                 assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
-                var other = executor.submit(() -> roadmaps.getOrGenerate(otherTopic, BEGINNER, BUILD_A_PROJECT));
+                var other = executor.submit(() -> roadmaps.getOrGenerate(otherTopic, null, BEGINNER, BUILD_A_PROJECT));
                 assertThat(other.get(3, TimeUnit.SECONDS).getId()).isNotNull();
                 assertThat(first.isDone()).isFalse();
             } finally { release.countDown(); }
@@ -83,43 +83,43 @@ class ConcurrencyIntegrationTest {
         String topic = "bounded-" + UUID.randomUUID();
         var started = new CountDownLatch(1);
         var release = new CountDownLatch(1);
-        when(generator.generate(eq(topic), any(), any())).thenAnswer(invocation -> {
+        when(generator.generate(eq(topic), any(), any(), any())).thenAnswer(invocation -> {
             started.countDown();
             if (!release.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("Release timeout");
             return TestFixtures.draftWithPrerequisites(4);
         });
         try (var executor = Executors.newSingleThreadExecutor()) {
-            var first = executor.submit(() -> roadmaps.getOrGenerate(topic, BEGINNER, BUILD_A_PROJECT));
+            var first = executor.submit(() -> roadmaps.getOrGenerate(topic, null, BEGINNER, BUILD_A_PROJECT));
             try {
                 assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
                 long start = System.nanoTime();
-                assertThatThrownBy(() -> roadmaps.getOrGenerate(topic, BEGINNER, BUILD_A_PROJECT))
+                assertThatThrownBy(() -> roadmaps.getOrGenerate(topic, null, BEGINNER, BUILD_A_PROJECT))
                         .isInstanceOf(com.uncomplex.exception.OperationBusyException.class);
                 assertThat(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start)).isLessThan(3000);
             } finally { release.countDown(); }
             var saved = first.get(5, TimeUnit.SECONDS);
-            assertThat(roadmaps.getOrGenerate(topic, BEGINNER, BUILD_A_PROJECT).getId()).isEqualTo(saved.getId());
+            assertThat(roadmaps.getOrGenerate(topic, null, BEGINNER, BUILD_A_PROJECT).getId()).isEqualTo(saved.getId());
         }
-        verify(generator, times(1)).generate(topic, BEGINNER, BUILD_A_PROJECT);
+        verify(generator, times(1)).generate(topic, null, BEGINNER, BUILD_A_PROJECT);
     }
 
     @Test
     void cachedResultDoesNotAcquireAGenerationLock() throws Exception {
         String topic = "cached-" + UUID.randomUUID();
-        var cached = roadmaps.getOrGenerate(topic, BEGINNER, BUILD_A_PROJECT);
+        var cached = roadmaps.getOrGenerate(topic, null, BEGINNER, BUILD_A_PROJECT);
         var held = new CountDownLatch(1);
         var release = new CountDownLatch(1);
         try (var executor = Executors.newFixedThreadPool(2)) {
             var owner = executor.submit(() -> new org.springframework.transaction.support.TransactionTemplate(transactionManager)
                     .executeWithoutResult(status -> {
-                        mutex.acquire("generation:" + com.uncomplex.roadmap.service.CacheKeys.of(topic, BEGINNER, BUILD_A_PROJECT));
+                        mutex.acquire("generation:" + com.uncomplex.roadmap.service.CacheKeys.of(topic, null, BEGINNER, BUILD_A_PROJECT));
                         held.countDown();
                         try { if (!release.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("Release timeout"); }
                         catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new RuntimeException(e); }
                     }));
             try {
                 assertThat(held.await(5, TimeUnit.SECONDS)).isTrue();
-                var read = executor.submit(() -> roadmaps.getOrGenerate(topic, BEGINNER, BUILD_A_PROJECT));
+                var read = executor.submit(() -> roadmaps.getOrGenerate(topic, null, BEGINNER, BUILD_A_PROJECT));
                 assertThat(read.get(3, TimeUnit.SECONDS).getId()).isEqualTo(cached.getId());
             } finally { release.countDown(); }
             owner.get(5, TimeUnit.SECONDS);
@@ -131,7 +131,7 @@ class ConcurrencyIntegrationTest {
         String email = UUID.randomUUID() + "@example.com";
         auth.register(email, "a-strong-password");
         Long userId = users.findByEmail(email).orElseThrow().getId();
-        var roadmap = roadmaps.getOrGenerate("Library " + UUID.randomUUID(), BEGINNER, BUILD_A_PROJECT);
+        var roadmap = roadmaps.getOrGenerate("Library " + UUID.randomUUID(), null, BEGINNER, BUILD_A_PROJECT);
         concurrently(() -> library.saveByShareToken(userId, roadmap.getShareToken()));
         assertThat(library.listFor(userId)).hasSize(1);
         Long nodeId = roadmap.getNodes().getFirst().getId();

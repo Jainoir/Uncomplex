@@ -17,7 +17,7 @@ import java.util.List;
 public class MockRoadmapGenerator implements AiRoadmapGenerator {
 
     @Override
-    public RoadmapDraft generate(String topic, ExperienceLevel level, LearningGoal goal) {
+    public RoadmapDraft generate(String topic, String context, ExperienceLevel level, LearningGoal goal) {
         ResourceDraft mdnHttp = new ResourceDraft(
                 "MDN: An overview of HTTP",
                 "https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview",

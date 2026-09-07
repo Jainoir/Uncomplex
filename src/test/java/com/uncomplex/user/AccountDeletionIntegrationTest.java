@@ -45,7 +45,7 @@ class AccountDeletionIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        when(generator.generate(anyString(), any(), any()))
+        when(generator.generate(anyString(), any(), any(), any()))
                 .thenReturn(TestFixtures.draftWithPrerequisites(4));
     }
 
@@ -55,7 +55,7 @@ class AccountDeletionIntegrationTest {
         var session = auth.register(email, "a-strong-password");
         Long userId = users.findByEmail(email).orElseThrow().getId();
 
-        Roadmap roadmap = roadmaps.getOrGenerate("Erasure " + UUID.randomUUID(), BEGINNER, BUILD_A_PROJECT);
+        Roadmap roadmap = roadmaps.getOrGenerate("Erasure " + UUID.randomUUID(), null, BEGINNER, BUILD_A_PROJECT);
         library.saveByShareToken(userId, roadmap.getShareToken());
         Long nodeId = roadmap.getNodes().getFirst().getId();
         library.setNodeProgress(userId, roadmap.getId(), nodeId, true);
