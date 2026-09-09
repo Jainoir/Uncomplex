@@ -133,6 +133,7 @@ async function raw(path: string, options: RequestInit = {}, withAuth = true): Pr
 }
 
 let refreshing: Promise<boolean> | null = null
+let warming: Promise<void> | null = null
 
 async function refreshAccess(failedAccess: string | null): Promise<boolean> {
   const rotate = async () => {
@@ -186,6 +187,16 @@ async function request<T>(path: string, options: RequestInit = {}, withAuth = tr
 export const api = {
   currentEmail: () => store.email,
   isLoggedIn: () => store.refresh !== null,
+
+  /** One best-effort wake-up per page load, including across StrictMode and route remounts. */
+  warmup(): Promise<void> {
+    // Keep this independent of authenticated requests: an expired session must not
+    // trigger a refresh, and a failed health probe must not block the visitor.
+    warming ??= fetch(BASE + '/actuator/health', {
+      credentials: 'omit', cache: 'no-store', signal: AbortSignal.timeout(TIMEOUTS.default),
+    }).then(() => undefined).catch(() => undefined)
+    return warming
+  },
 
   async register(email: string, password: string) {
     store.save(await request<AuthResponse>('/api/auth/register', {

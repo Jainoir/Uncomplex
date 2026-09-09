@@ -29,6 +29,9 @@ public class CorsConfig {
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", config);
+        // The landing page wakes the API through its public health endpoint.
+        // Keep other actuator endpoints outside the cross-origin allowlist.
+        source.registerCorsConfiguration("/actuator/health", config);
         return source;
     }
 }

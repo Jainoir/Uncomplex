@@ -2,6 +2,7 @@ package com.uncomplex.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -54,6 +55,7 @@ public class SecurityConfig {
     }
 
     @Bean
+    @Lazy(false) // Validate JWT_SECRET at startup even when other beans initialize lazily.
     public JwtEncoder jwtEncoder(AppProperties properties) {
         return new NimbusJwtEncoder(new ImmutableSecret<>(secretKey(properties)));
     }

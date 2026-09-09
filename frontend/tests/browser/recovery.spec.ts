@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Page } from './fixtures'
 
 const roadmap = (token = 'alpha') => ({
   id: token === 'alpha' ? 1 : 2, shareToken: token, title: `Learn ${token}`,

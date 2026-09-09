@@ -6,6 +6,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -22,6 +23,7 @@ import java.net.UnknownHostException;
 
 /** Separate budgets for generation and login/registration; proxy headers require explicit trust. */
 @Component
+@Lazy(false) // Preserve proxy validation at startup if global lazy initialization is enabled.
 public class RateLimitFilter extends OncePerRequestFilter {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(RateLimitFilter.class);
     private final RateLimiter generationLimiter;
