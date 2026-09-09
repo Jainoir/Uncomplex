@@ -123,3 +123,33 @@ test('logout during refresh cannot resurrect the session', async () => {
   assert.equal(api.isLoggedIn(), false)
   assert.equal(storage.has('uncomplex.access'), false)
 })
+
+test('timeouts clear a cold start, and generation gets the larger budget', async () => {
+  const { TIMEOUTS } = await import('data:text/javascript;base64,' +
+    Buffer.from(compiled + '\n//' + Math.random()).toString('base64'))
+
+  // The API has been measured booting in ~140s on its free instance. A timeout below that
+  // cannot survive a cold start: the first request after an idle period fails every time,
+  // which is exactly what a flat 120s did.
+  const MEASURED_COLD_START_MS = 140_000
+  assert.ok(TIMEOUTS.default > MEASURED_COLD_START_MS,
+    `default ${TIMEOUTS.default}ms must exceed the ~${MEASURED_COLD_START_MS}ms cold start`)
+
+  // Generation adds a real model call (~46s warm) on top of any wake-up.
+  assert.ok(TIMEOUTS.generation > TIMEOUTS.default,
+    'generation needs a longer budget than an ordinary request')
+})
+
+test('generation is sent with its own longer abort signal', async () => {
+  seed()
+  const signals = []
+  globalThis.fetch = async (_url, options) => {
+    signals.push(options.signal)
+    return json(201, { shareToken: 'alpha' })
+  }
+  await api.generate('kubernetes', 'container orchestration', 'BEGINNER', 'GENERAL_UNDERSTANDING')
+
+  assert.equal(signals.length, 1)
+  assert.ok(signals[0] instanceof AbortSignal)
+  assert.equal(signals[0].aborted, false)
+})
