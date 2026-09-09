@@ -35,6 +35,7 @@ export default function LandingPage() {
   const live = useRef(true)
   useEffect(() => {
     live.current = true
+    void api.warmup()
     return () => { live.current = false }
   }, [])
 

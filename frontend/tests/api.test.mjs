@@ -140,6 +140,47 @@ test('timeouts clear a cold start, and generation gets the larger budget', async
     'generation needs a longer budget than an ordinary request')
 })
 
+test('warm-up sends one anonymous uncached health request without waiting for it', async () => {
+  seed()
+  const calls = []
+  let release
+  globalThis.fetch = (url, options) => {
+    calls.push({ url, options })
+    return new Promise(resolve => { release = resolve })
+  }
+  const first = api.warmup()
+  const second = api.warmup()
+  assert.equal(first, second)
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].url, '/actuator/health')
+  assert.equal(calls[0].options.credentials, 'omit')
+  assert.equal(calls[0].options.cache, 'no-store')
+  assert.equal(calls[0].options.headers, undefined)
+  assert.ok(calls[0].options.signal instanceof AbortSignal)
+  release(json(200, { status: 'UP' }))
+  await first
+  await api.warmup()
+  assert.equal(calls.length, 1)
+})
+
+for (const failure of ['http', 'network', 'timeout']) {
+  test(`warm-up ${failure} failure preserves the session and does not retry`, async () => {
+    seed()
+    let calls = 0
+    globalThis.fetch = async () => {
+      calls++
+      if (failure === 'network') throw new TypeError('Failed to fetch')
+      if (failure === 'timeout') throw new DOMException('Deadline exceeded', 'TimeoutError')
+      return json(401)
+    }
+    await api.warmup()
+    await api.warmup()
+    assert.equal(calls, 1)
+    assert.equal(storage.get('uncomplex.access'), 'expired')
+    assert.equal(storage.get('uncomplex.refresh'), 'original')
+  })
+}
+
 test('generation is sent with its own longer abort signal', async () => {
   seed()
   const signals = []

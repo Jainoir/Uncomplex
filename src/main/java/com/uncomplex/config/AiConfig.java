@@ -11,6 +11,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 
 @Configuration
 public class AiConfig {
@@ -18,6 +19,7 @@ public class AiConfig {
     private static final Logger log = LoggerFactory.getLogger(AiConfig.class);
 
     @Bean
+    @Lazy(false) // A missing API key must fail deployment, not the first generation.
     @ConditionalOnProperty(name = "app.ai.provider", havingValue = "anthropic")
     public AnthropicClient anthropicClient(AppProperties properties) {
         String apiKey = properties.ai().anthropic().apiKey();
