@@ -4,6 +4,20 @@
 
 const BASE = import.meta.env?.VITE_API_BASE_URL ?? ''
 
+/**
+ * The API sleeps when idle on its current hosting and has been measured taking about 140
+ * seconds to boot, so every timeout here has to clear a cold start before it clears anything
+ * else. A flat 120s could not: the boot alone outlasted it, and the first request after a
+ * quiet period failed every time regardless of how fast the server actually was.
+ *
+ * Generation gets its own budget because a real model call runs behind it — around 46 seconds
+ * warm — and that lands on top of any wake-up.
+ */
+export const TIMEOUTS = {
+  default: 180_000,
+  generation: 240_000,
+}
+
 export type ExperienceLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED'
 export type LearningGoal =
   | 'GENERAL_UNDERSTANDING'
@@ -109,7 +123,7 @@ async function raw(path: string, options: RequestInit = {}, withAuth = true): Pr
   if (withAuth && store.access) headers['Authorization'] = `Bearer ${store.access}`
   try {
     return await fetch(BASE + path, { ...options, headers,
-      signal: options.signal ?? AbortSignal.timeout(120_000) })
+      signal: options.signal ?? AbortSignal.timeout(TIMEOUTS.default) })
   } catch (error) {
     if (error instanceof DOMException && error.name === 'TimeoutError') {
       throw new ApiError(408, 'The request timed out. Please try again.')
@@ -198,6 +212,7 @@ export const api = {
   generate(topic: string, context: string, experienceLevel: ExperienceLevel, goal: LearningGoal) {
     return request<Roadmap>('/api/roadmaps', {
       method: 'POST', body: JSON.stringify({ topic, context, experienceLevel, goal }),
+      signal: AbortSignal.timeout(TIMEOUTS.generation),
     })
   },
 
