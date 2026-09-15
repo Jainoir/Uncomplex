@@ -2,16 +2,27 @@
 
 # Uncomplex
 
-**Enter anything you want to learn — Uncomplex tells you what to understand *first*, in order, with credible resources.**
+**Understand what comes first. Then learn the thing you came for.**
+
+Turn a topic, your current level, and a learning goal into an ordered prerequisite roadmap with explanations and resources.
 
 [![CI](https://github.com/Jainoir/Uncomplex/actions/workflows/ci.yml/badge.svg)](https://github.com/Jainoir/Uncomplex/actions/workflows/ci.yml)
 
-🌐 **[Try it live](https://uncomplex.vercel.app)** · [API health](https://uncomplex-api.onrender.com/actuator/health)
-<sub>free hosting tier — the first request after idle takes ~1 min to wake the API</sub>
+**[Try it live](https://uncomplex.vercel.app)** · [Run locally](#run-it-yourself) · [Services & accounts](SERVICES.md) · [API health](https://uncomplex-api.onrender.com/actuator/health)
+
+<sub>The first request after idle can be slow while the hosted API wakes up. Opening the homepage starts a background warm-up.</sub>
+
+<p><img src="docs/screenshots/walkthrough.png" alt="Animated walkthrough of the current Uncomplex interface: enter Rate limiting, generate a roadmap, expand a prerequisite, complete two steps, copy the sharing link, and open the saved library." width="840"></p>
+
+<sub>A condensed walkthrough of the current interface, using example API responses and a shortened generation wait. Follow the still screenshots below at your own pace.</sub>
 
 </div>
 
-Most learning tools answer *"how do I learn X?"*. Uncomplex answers the question that actually blocks people: *"why doesn't X make sense to me yet?"* — which is almost always **missing prerequisites**. The ordering is the product; the links are the bonus.
+When a topic doesn't click, the missing piece is often something underneath it. Uncomplex makes those prerequisites explicit: **what to understand, why it matters, and what to learn next**.
+
+| Explore immediately | Understand the path | Keep your place |
+| --- | --- | --- |
+| Generate and open shared roadmaps without an account. | Get 4–8 ordered concepts with explanations, time estimates, and resource links. | Sign in to save roadmaps and track your own progress. |
 
 **Jump to:** [How it works](#how-it-works) · [Tech stack](#tech-stack) · [Run it yourself](#run-it-yourself) · [API](#api) · [Architecture](#architecture) · [System design & patterns](#system-design-and-patterns) · [Design decisions](#design-decisions-and-why) · [Testing](#testing-strategy) · [Configuration](#configuration) · [Services & accounts](SERVICES.md)
 
@@ -19,27 +30,53 @@ Most learning tools answer *"how do I learn X?"*. Uncomplex answers the question
 
 ## How it works
 
-### 1 · Say what you want to learn, where you're at, and why
+### 1 · Give the topic some context
 
-<p align="center"><img src="docs/screenshots/landing.png" alt="Landing page: topic input with experience level and learning goal" width="760"></p>
+This walkthrough starts with **Rate limiting**, in the context of **Public REST APIs**, at **Beginner** level, for a **System design interview**. The optional context field helps distinguish different meanings of the same topic.
 
-### 2 · Claude builds your prerequisite path — validated, ordered, time-boxed
+<p align="center"><img src="docs/screenshots/landing.png" alt="Current dark neon landing page filled with Rate limiting, Public REST APIs, Beginner, and System design interview." width="840"></p>
 
-One AI call produces 4–8 prerequisite concepts. Every concept explains **what it is** and **why it comes first**. Every resource link must survive a credibility allowlist (official docs, standards bodies, universities) before it's stored — this checks the domain, not whether the page exists or its content is accurate. Links are marked as unchecked until the scheduled liveness probe runs.
+<details>
+<summary>While the path is being generated</summary>
 
-<p align="center"><img src="docs/screenshots/roadmap.png" alt="Roadmap page: expandable prerequisite cards with explanations and credible resources" width="760"></p>
+The waiting panel shows elapsed time and time-based status messages. Those messages estimate the likely stage of the request; the backend does not stream generation progress.
 
-### 3 · Track your progress node by node
+<p align="center"><img src="docs/screenshots/generating.png" alt="Generation panel showing Asking Claude what you need to learn first and the elapsed time for Rate limiting." width="720"></p>
 
-With an account, the roadmap becomes a checklist. Progress is per-user: share the same roadmap with a friend and you each get your own checkboxes.
+</details>
 
-<p align="center"><img src="docs/screenshots/progress.png" alt="Roadmap with completed nodes struck through and a progress bar at 2/6" width="760"></p>
+### 2 · Open a prerequisite and understand why it belongs
 
-### 4 · Keep a library — and share any roadmap with a link
+Claude proposes an ordered path, and the backend validates it before saving. Each concept has a description, a **Why first** explanation, a difficulty level, and an estimated study time. Expand a card to see the details and its resources.
 
-Every roadmap gets a public URL like `/r/docker-qn9wb` that anyone can open, **no account needed**. After successful generation, repeating the same topic/level/goal reuses the saved roadmap — repeats are served from PostgreSQL in milliseconds.
+<p align="center"><img src="docs/screenshots/roadmap.png" alt="Six-step rate-limiting roadmap with HTTP requests and responses expanded, showing its explanation, Why first reasoning, and MDN resource." width="840"></p>
 
-<p align="center"><img src="docs/screenshots/library.png" alt="Library page listing saved roadmaps with progress bars" width="760"></p>
+**How to read the resource labels:** links must pass a domain allowlist before they are stored. **Official documentation** describes the source type; **link not yet checked** means the scheduled reachability probe has not run. Domain approval does not establish that a page exists or that its content is accurate.
+
+### 3 · Save the path and check off what you've learned
+
+Sign in, choose **Save to my library**, and mark concepts complete. Here, the first two steps are finished: **2/6 done (33%)**. The next concept is open, ready to continue. Roadmaps generated while signed in are saved automatically.
+
+<p align="center"><img src="docs/screenshots/progress.png" alt="Signed-in roadmap with the first two concepts checked off, a 33 percent progress bar, and API authentication and identity expanded as the next step." width="840"></p>
+
+### 4 · Come back to your library, or share the path
+
+**My roadmaps** keeps each saved path and its completion count together. Open one to resume. **Copy sharing link** gives anyone access to the roadmap without an account; each signed-in learner tracks their own progress independently.
+
+<p align="center"><img src="docs/screenshots/library.png" alt="Current library showing the same rate-limiting path at 2 of 6 complete, alongside example Docker and database-indexing roadmaps." width="840"></p>
+
+<details>
+<summary>Sharing confirmation and the mobile layout</summary>
+
+The **Copied!** state confirms that the public URL is on the clipboard. The roadmap's concepts and progress controls also adapt to a narrow screen.
+
+<p align="center"><img src="docs/screenshots/sharing.png" alt="Roadmap header showing Copied after the public sharing link is copied to the clipboard." width="720"></p>
+
+<p align="center"><img src="docs/screenshots/mobile.png" alt="The same roadmap on a 390-pixel-wide mobile screen, with two completed concepts, 33 percent progress, and the next concept expanded." width="320"></p>
+
+</details>
+
+**Returning to the same topic?** After successful generation, the same normalized topic, context, level, and goal reuse the saved roadmap from PostgreSQL. A cache hit avoids another AI call.
 
 ---
 
@@ -48,7 +85,7 @@ Every roadmap gets a public URL like `/r/docker-qn9wb` that anyone can open, **n
 | Layer | Technologies |
 |---|---|
 | Backend | Java 21 · Spring Boot 3.5 · Spring Security (JWT resource server) · Spring Data JPA / Hibernate |
-| Data | PostgreSQL + Flyway migrations · Redis (distributed rate limiting) |
+| Data | PostgreSQL + Flyway migrations · optional Redis for distributed rate limiting |
 | AI | Anthropic Claude API with **structured outputs** (JSON schema derived from Java records) |
 | Frontend | React 19 · TypeScript · Vite · React Router |
 | Testing | JUnit 5 · Mockito · MockMvc · Testcontainers (real PostgreSQL & Redis in CI) · Playwright |
@@ -56,7 +93,9 @@ Every roadmap gets a public URL like `/r/docker-qn9wb` that anyone can open, **n
 
 ## Run it yourself
 
-**Zero dependencies** — in-memory H2 database + deterministic mock AI, no API key needed:
+**Prerequisites:** Java 21 for the backend; Node.js 22 and npm for the frontend. On Windows, use `mvnw.cmd` in place of `./mvnw`.
+
+**Local demo** — in-memory H2 database + deterministic mock AI, with no database service or API key to configure:
 
 ```bash
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
@@ -65,7 +104,9 @@ Every roadmap gets a public URL like `/r/docker-qn9wb` that anyone can open, **n
 **Frontend** — the dev server proxies `/api` to the backend on :8080:
 
 ```bash
-cd frontend && npm install && npm run dev   # http://localhost:5173
+cd frontend
+npm ci
+npm run dev   # http://localhost:5173
 ```
 
 **Full stack with real AI** — PostgreSQL + Redis via Docker, live Claude generation:
@@ -92,7 +133,7 @@ The PostgreSQL and Redis Testcontainers suites skip automatically without Docker
 |---|---|---|
 | `POST` | `/api/roadmaps` | Generate (or serve cached) roadmap. Rate limited. With a JWT, also saves to your library. |
 | `GET` | `/api/roadmaps/public/{shareToken}` | Open a shared roadmap. Never rate limited. |
-| `POST` | `/api/auth/register` | Create an account (email + password ≥ 8 chars). |
+| `POST` | `/api/auth/register` | Create an account (email + password ≥ 8 chars, ≤ 72 UTF-8 bytes). |
 | `POST` | `/api/auth/login` | Get an access token + refresh token. |
 | `POST` | `/api/auth/refresh` | Rotate: exchange a refresh token for a fresh pair. |
 | `POST` | `/api/auth/logout` | Revoke a refresh token. |
@@ -107,6 +148,7 @@ The PostgreSQL and Redis Testcontainers suites skip automatically without Docker
 | `GET` | `/api/me/roadmaps/{id}` | One roadmap + my progress overlay (completed node ids, percent). |
 | `PUT` | `/api/me/roadmaps/{id}/nodes/{nodeId}/progress` | Mark a node `{"completed": true/false}`. Idempotent. |
 | `DELETE` | `/api/me/roadmaps/{id}` | Remove from my library (the shared roadmap survives for others). |
+| `DELETE` | `/api/me` | Delete the account, library membership, progress, and refresh tokens. Shared roadmaps remain available. |
 
 Errors follow RFC 9457 problem details (`400` validation, `404` unknown token, `429` rate limit, `502` generation failure).
 
@@ -116,10 +158,17 @@ A **modular monolith**: one Spring Boot API organized by feature, with a separat
 
 ```mermaid
 flowchart LR
-    Browser["React frontend · Vercel"] -->|HTTPS / JSON| API["Spring Boot API · Render"]
-    API -->|Roadmaps, accounts, progress| DB[("PostgreSQL · Neon")]
-    API -->|Generation on cache miss| AI["Anthropic Claude API"]
+    Browser["React frontend<br/>Vercel"] -->|HTTPS / JSON| API["Spring Boot API<br/>Render"]
+    API -->|Roadmaps, accounts, progress| DB[("PostgreSQL<br/>Neon")]
+    API -->|Generate on cache miss| AI["Anthropic<br/>Claude API"]
     API -.->|Optional shared rate limits| Redis[("Redis")]
+
+    classDef app fill:#110e1e,stroke:#22e8ff,color:#eae7f5
+    classDef data fill:#110e1e,stroke:#ff3d8b,color:#eae7f5
+    classDef optional fill:#110e1e,stroke:#918cb4,color:#eae7f5,stroke-dasharray:4 4
+    class Browser,API,AI app
+    class DB data
+    class Redis optional
 ```
 
 Backend package layout:
@@ -260,3 +309,21 @@ node scripts/benchmark-startup.mjs --guards
 On Windows, use `mvnw.cmd`. The benchmark uses localhost, H2, and mock AI, and
 writes logs and JSON results under `target/`. These local JVM measurements do not
 measure Render wake-up time, Neon latency, or real AI generation.
+
+<details>
+<summary>Refresh the README screenshots and animation</summary>
+
+After installing the frontend dependencies, run from the repository root:
+
+```sh
+node frontend/node_modules/playwright/cli.js install chromium
+node scripts/capture-readme.mjs
+```
+
+Alternatively, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to an installed Chrome or Chromium executable.
+
+The [capture script](scripts/capture-readme.mjs) starts an isolated frontend on `127.0.0.1:5187` and drives the actual interface with deterministic example API responses. It exercises generation, sign-in, saving, progress after navigation, clipboard sharing, and the mobile layout, then replaces the images in `docs/screenshots/`. Google Fonts is used for the application's typography; API traffic stays local. The animation is a lossless animated PNG assembled from the captured screens.
+
+These visuals demonstrate the interface. The backend and infrastructure tests described above verify database persistence and provider integration separately.
+
+</details>
