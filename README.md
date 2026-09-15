@@ -13,7 +13,7 @@
 
 Most learning tools answer *"how do I learn X?"*. Uncomplex answers the question that actually blocks people: *"why doesn't X make sense to me yet?"* — which is almost always **missing prerequisites**. The ordering is the product; the links are the bonus.
 
-**Jump to:** [How it works](#how-it-works) · [Tech stack](#tech-stack) · [Run it yourself](#run-it-yourself) · [API](#api) · [Architecture](#architecture) · [System design & patterns](#system-design-and-patterns) · [Design decisions](#design-decisions-and-why) · [Testing](#testing-strategy) · [Configuration](#configuration)
+**Jump to:** [How it works](#how-it-works) · [Tech stack](#tech-stack) · [Run it yourself](#run-it-yourself) · [API](#api) · [Architecture](#architecture) · [System design & patterns](#system-design-and-patterns) · [Design decisions](#design-decisions-and-why) · [Testing](#testing-strategy) · [Configuration](#configuration) · [Services & accounts](SERVICES.md)
 
 ---
 
@@ -214,27 +214,11 @@ The [design decisions below](#design-decisions-and-why) explain the trade-offs. 
 | `LINK_HEALTH_ENABLED` | `true` | Nightly resource-link liveness probing |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Comma-separated frontend origins |
 
-Deployment is codified in the repo: [`render.yaml`](render.yaml) (API Blueprint) and [`frontend/vercel.json`](frontend/vercel.json) (SPA rewrites). The API runs on Render (Ohio); PostgreSQL is hosted on **Neon** and wired in through `DB_URL`, `DB_USERNAME` and `DB_PASSWORD`.
+Deployment is codified in the repo: [`render.yaml`](render.yaml) (API Blueprint) and [`frontend/vercel.json`](frontend/vercel.json) (SPA rewrites). The API runs on Render; PostgreSQL is hosted on **Neon** and wired in through `DB_URL`, `DB_USERNAME` and `DB_PASSWORD`.
 
-> **Why the database is not a Render resource.** Render's free PostgreSQL is deleted 30 days
-> after creation. That happened here: the instance already running kept serving until an
-> unrelated restart weeks later, at which point the container exited with status 1 because
-> Flyway could not connect — surfacing as hung requests rather than an HTTP error, since
-> Render holds the connection open waiting for an origin that never becomes ready. Neon's
-> free plan has no such expiry, so the database moved there.
+See [Services & accounts](SERVICES.md) for the full service inventory, dashboard links, deployment settings, and maintenance reminders.
 
-## Project roadmap
-
-- ~~**Milestone 1** — anonymous generate / persist / share~~ ✅
-- ~~**Milestone 2** — JWT authentication, saved-roadmap library, per-node progress tracking~~ ✅
-- ~~**Milestone 3** — refresh token rotation with reuse detection, Redis-backed rate limiting, scheduled link liveness checking~~ ✅
-- ~~**Milestone 4** — React/TypeScript frontend (landing, roadmap + progress, shared view, auth, library)~~ ✅
-- ~~**Deployed** — API on Render, PostgreSQL on Neon, frontend on Vercel~~ ✅
-- **Later** — per-node regeneration, FR/EN bilingual content, dependency graph view
-
-See [PROGRESS.md](PROGRESS.md) for the detailed checklist.
-
-### Reliability checks
+## Reliability checks
 
 Run backend checks with `./mvnw verify`; run frontend checks with `npm test`,
 `npm run lint`, `npm run build`, and `npm run test:browser` from `frontend/` (install Chromium first with `npx playwright install chromium`). Concurrency regressions run
@@ -257,7 +241,22 @@ chain from the right; entries further left are client-supplied and must never be
 Render deployments fail startup unless one of the two is set. Local and direct deployments
 may leave both unset, which ignores forwarded headers entirely. To determine the hop count,
 deploy once with `LOGGING_LEVEL_COM_UNCOMPLEX_RATELIMIT=DEBUG`, POST to `/api/roadmaps`, read
-the `x-forwarded-for` value in the logs, then turn DEBUG back off. See FIXES.md for
-verification limits.
+the `x-forwarded-for` value in the logs, then turn DEBUG back off.
 
-See [FIXES.md](FIXES.md) for the reliability change list.
+### Startup measurements
+
+The homepage starts one anonymous health request per document load so API startup
+can overlap with filling in the form. Global lazy initialization remains off;
+local measurements did not establish a useful improvement on Render.
+
+With Java 21 and Node 22 available, run from the repository root:
+
+```sh
+./mvnw -B verify
+node scripts/benchmark-startup.mjs
+node scripts/benchmark-startup.mjs --guards
+```
+
+On Windows, use `mvnw.cmd`. The benchmark uses localhost, H2, and mock AI, and
+writes logs and JSON results under `target/`. These local JVM measurements do not
+measure Render wake-up time, Neon latency, or real AI generation.
