@@ -183,7 +183,8 @@ try {
     frames.push({ png, seconds })
     console.log(`Captured ${name}.png`)
   }
-  await capture('landing')
+  // Theme-specific filenames avoid cached screenshots from the previous light UI.
+  await capture('landing-neon')
   await page.getByRole('button', { name: 'Build my learning path' }).click()
   await expect(page.getByRole('status')).toBeVisible()
   await expect(page.getByRole('status')).toContainText('Asking Claude', { timeout: 10000 })
@@ -193,7 +194,7 @@ try {
   await expect(page.getByRole('heading', { name: roadmap.title })).toBeVisible()
   await page.getByRole('button', { name: /2\. HTTP requests/ }).click()
   await expect(page.getByText('MDN: An overview of HTTP')).toBeVisible()
-  await capture('roadmap', 4)
+  await capture('roadmap-neon', 4)
 
   // Sign in and save through the real UI. Only API responses are fixtures.
   await page.getByRole('link', { name: 'Log in', exact: true }).click()
@@ -210,7 +211,7 @@ try {
   await expect(page.getByRole('checkbox', { name: 'Mark HTTP requests and responses as not done', exact: true })).toBeChecked()
   await expect(page.getByLabel('33% complete')).toBeVisible()
   await page.getByRole('button', { name: /3\. API authentication/ }).click()
-  await capture('progress')
+  await capture('progress-neon')
   await page.getByRole('button', { name: 'Copy sharing link' }).click()
   await expect(page.getByRole('button', { name: 'Copied!' })).toBeVisible()
   assert.equal(await page.evaluate(() => navigator.clipboard.readText()), `${origin}${roadmap.shareUrl}`)
@@ -220,9 +221,9 @@ try {
   await page.getByRole('link', { name: 'My roadmaps', exact: true }).click()
   await expect(page.getByRole('link', { name: roadmap.title })).toBeVisible()
   await expect(page.locator('.library-item').first()).toContainText('2/6')
-  await capture('library', 3)
+  await capture('library-neon', 3)
   const libraryBounds = await page.locator('.library-list').boundingBox()
-  await page.screenshot({ path: join(output, 'library.png'), animations: 'disabled',
+  await page.screenshot({ path: join(output, 'library-neon.png'), animations: 'disabled',
     clip: { x: 0, y: 0, width: 1000, height: Math.ceil(libraryBounds.y + libraryBounds.height + 24) } })
   await writeFile(join(output, 'walkthrough.png'), animatedPng(frames))
 

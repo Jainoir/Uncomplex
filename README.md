@@ -34,7 +34,7 @@ When a topic doesn't click, the missing piece is often something underneath it. 
 
 This walkthrough starts with **Rate limiting**, in the context of **Public REST APIs**, at **Beginner** level, for a **System design interview**. The optional context field helps distinguish different meanings of the same topic.
 
-<p align="center"><img src="docs/screenshots/landing.png" alt="Current dark neon landing page filled with Rate limiting, Public REST APIs, Beginner, and System design interview." width="840"></p>
+<p align="center"><img src="docs/screenshots/landing-neon.png" alt="Current dark neon landing page filled with Rate limiting, Public REST APIs, Beginner, and System design interview." width="840"></p>
 
 <details>
 <summary>While the path is being generated</summary>
@@ -49,7 +49,7 @@ The waiting panel shows elapsed time and time-based status messages. Those messa
 
 Claude proposes an ordered path, and the backend validates it before saving. Each concept has a description, a **Why first** explanation, a difficulty level, and an estimated study time. Expand a card to see the details and its resources.
 
-<p align="center"><img src="docs/screenshots/roadmap.png" alt="Six-step rate-limiting roadmap with HTTP requests and responses expanded, showing its explanation, Why first reasoning, and MDN resource." width="840"></p>
+<p align="center"><img src="docs/screenshots/roadmap-neon.png" alt="Six-step rate-limiting roadmap with HTTP requests and responses expanded, showing its explanation, Why first reasoning, and MDN resource." width="840"></p>
 
 **How to read the resource labels:** links must pass a domain allowlist before they are stored. **Official documentation** describes the source type; **link not yet checked** means the scheduled reachability probe has not run. Domain approval does not establish that a page exists or that its content is accurate.
 
@@ -57,13 +57,13 @@ Claude proposes an ordered path, and the backend validates it before saving. Eac
 
 Sign in, choose **Save to my library**, and mark concepts complete. Here, the first two steps are finished: **2/6 done (33%)**. The next concept is open, ready to continue. Roadmaps generated while signed in are saved automatically.
 
-<p align="center"><img src="docs/screenshots/progress.png" alt="Signed-in roadmap with the first two concepts checked off, a 33 percent progress bar, and API authentication and identity expanded as the next step." width="840"></p>
+<p align="center"><img src="docs/screenshots/progress-neon.png" alt="Signed-in roadmap with the first two concepts checked off, a 33 percent progress bar, and API authentication and identity expanded as the next step." width="840"></p>
 
 ### 4 · Come back to your library, or share the path
 
 **My roadmaps** keeps each saved path and its completion count together. Open one to resume. **Copy sharing link** gives anyone access to the roadmap without an account; each signed-in learner tracks their own progress independently.
 
-<p align="center"><img src="docs/screenshots/library.png" alt="Current library showing the same rate-limiting path at 2 of 6 complete, alongside example Docker and database-indexing roadmaps." width="840"></p>
+<p align="center"><img src="docs/screenshots/library-neon.png" alt="Current library showing the same rate-limiting path at 2 of 6 complete, alongside example Docker and database-indexing roadmaps." width="840"></p>
 
 <details>
 <summary>Sharing confirmation and the mobile layout</summary>
