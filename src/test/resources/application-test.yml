@@ -10,3 +10,7 @@ app:
     provider: mock
   rate-limit:
     generations-per-day: 1000
+  link-health:
+    # Tests call the link checker directly; keep the background catch-up from firing
+    # real HTTP probes in a long-lived cached context.
+    catch-up-initial-delay: PT24H

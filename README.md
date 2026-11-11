@@ -51,7 +51,7 @@ Claude proposes an ordered path, and the backend validates it before saving. Eac
 
 <p align="center"><img src="docs/screenshots/roadmap-neon.png" alt="Six-step rate-limiting roadmap with HTTP requests and responses expanded, showing its explanation, Why first reasoning, and MDN resource." width="840"></p>
 
-**How to read the resource labels:** links must pass a domain allowlist before they are stored. **Official documentation** describes the source type; **link not yet checked** means the scheduled reachability probe has not run. Domain approval does not establish that a page exists or that its content is accurate.
+**How to read the resource labels:** links must pass a domain allowlist before they are stored. **Official documentation** describes the source type; **link not yet checked** means the reachability probe has not reached it yet (new links are normally probed within about 20 minutes). Domain approval does not establish that a page exists or that its content is accurate.
 
 ### 3 · Save the path and check off what you've learned
 
@@ -230,7 +230,7 @@ The [design decisions below](#design-decisions-and-why) explain the trade-offs. 
 
 **Rate limiting is pluggable** (`app.rate-limit.store`): an in-memory Bucket4j token bucket for single-instance deployments (default), or a Redis fixed-window counter (a Lua script that atomically increments the counter and sets its expiry) shared across replicas. The trade-off is documented in the code: the fixed window permits a brief boundary burst. Login and registration share a separate 30-attempt budget per client per 15 minutes. Counter outages return a retryable 503.
 
-**Dead links get caught after the fact.** The credibility allowlist filters URLs at generation time; a nightly scheduled job (`HEAD` probe, `GET` fallback) marks resources `reachable: true/false` in the API so a link that dies later is flagged instead of silently served.
+**Dead links get caught after the fact.** The credibility allowlist filters URLs at generation time; a scheduled job (`HEAD` probe, `GET` fallback) marks resources `reachable: true/false` in the API so a link that dies later is flagged instead of silently served. A full pass runs nightly. Because a sleep-when-idle host is rarely awake for that slot, a catch-up pass also runs a few minutes after startup and every 20 minutes while the instance is up, probing only links that are new or more than a day old, in small batches.
 
 **Why a monolith?** One team, one database, one backend deployable. Feature packages keep the code navigable, and shared transactions simplify consistency. Splitting services would add network failure modes and deployment overhead without addressing a current product need.
 
@@ -250,6 +250,7 @@ The [design decisions below](#design-decisions-and-why) explain the trade-offs. 
 |---|---|---|
 | `AI_PROVIDER` | `mock` | `anthropic` for real generation |
 | `ANTHROPIC_API_KEY` | — | Required when `AI_PROVIDER=anthropic` |
+| `ANTHROPIC_MODEL` | `claude-opus-4-8` | Claude model used for generation; change it without a rebuild |
 | `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | localhost Postgres | Database connection (or `DB_HOST`/`DB_PORT`/`DB_NAME`) |
 | `JWT_SECRET` | dev-only default | HS256 signing key (≥ 32 bytes). **Set in every deployed environment.** |
 | `TOKEN_TTL_MINUTES` | `60` | Access-token lifetime |
@@ -260,7 +261,7 @@ The [design decisions below](#design-decisions-and-why) explain the trade-offs. 
 | `TRUSTED_PROXY_CIDRS` | empty | Actual ingress proxy CIDRs; never outbound ranges. Alternative to hop counting |
 | `LOCK_WAIT_MILLIS` | `1000` | Maximum lock-acquisition wait before a retryable 503 (0..10000 ms) |
 | `RATE_LIMIT_STORE` | `memory` | `redis` for multi-replica deployments |
-| `LINK_HEALTH_ENABLED` | `true` | Nightly resource-link liveness probing |
+| `LINK_HEALTH_ENABLED` | `true` | Resource-link liveness probing (nightly pass plus catch-up after startup) |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Comma-separated frontend origins |
 
 Deployment is codified in the repo: [`render.yaml`](render.yaml) (API Blueprint) and [`frontend/vercel.json`](frontend/vercel.json) (SPA rewrites). The API runs on Render; PostgreSQL is hosted on **Neon** and wired in through `DB_URL`, `DB_USERNAME` and `DB_PASSWORD`.
@@ -327,3 +328,15 @@ The [capture script](scripts/capture-readme.mjs) starts an isolated frontend on 
 These visuals demonstrate the interface. The backend and infrastructure tests described above verify database persistence and provider integration separately.
 
 </details>
+
+## Roadmap
+
+**Next: video tutorials for each roadmap topic.** Not started; YouTube is not yet a project service.
+
+- Show up to five relevant teaching videos per topic, ranked by topic relevance, rating, and view count.
+- Include thumbnails, titles, channels, durations, and view/like counts, visible on shared roadmaps without an account.
+- Use the official YouTube Data API, with cached recommendations and quota handling.
+
+## License
+
+[MIT](LICENSE)
