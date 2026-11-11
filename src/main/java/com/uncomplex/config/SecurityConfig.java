@@ -44,6 +44,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/roadmaps").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/roadmaps/public/**").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
+                        // Liveness does not touch the database, so an uptime pinger can keep
+                        // the instance awake without also keeping serverless PostgreSQL awake.
+                        .requestMatchers("/actuator/health/liveness").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()));
         return http.build();

@@ -25,6 +25,18 @@ class HealthCorsIntegrationTest {
     }
 
     @Test
+    void anUptimePingerCanReachLivenessWithoutCredentials() throws Exception {
+        mvc.perform(get("/actuator/health/liveness"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"));
+    }
+
+    @Test
+    void otherActuatorEndpointsStayPrivate() throws Exception {
+        mvc.perform(get("/actuator/metrics")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void anUnlistedOriginIsStillRejected() throws Exception {
         mvc.perform(get("/actuator/health").header("Origin", "https://unlisted.example"))
                 .andExpect(status().isForbidden())

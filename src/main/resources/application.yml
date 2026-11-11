@@ -35,6 +35,12 @@ management:
     web:
       exposure:
         include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        # /actuator/health/liveness answers without querying the database; the keep-warm
+        # pinger uses it. Enabled explicitly so it exists on every host, not just some.
+        enabled: true
   health:
     redis:
       # Redis is optional (only used when app.rate-limit.store=redis); don't fail
