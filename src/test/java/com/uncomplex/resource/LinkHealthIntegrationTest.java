@@ -64,4 +64,30 @@ class LinkHealthIntegrationTest {
                 .andExpect(jsonPath("$.prerequisites[0].resources[0].reachable").value(false))
                 .andExpect(jsonPath("$.prerequisites[1].resources[0].reachable").value(true));
     }
+
+    @Test
+    void catchUpProbesOnlyLinksThatAreNewOrStale() throws Exception {
+        when(urlProber.isReachable(anyString())).thenReturn(true);
+
+        // Bring everything already in the shared database up to date first.
+        linkHealthService.checkAll();
+
+        String shareToken = roadmapService
+                .getOrGenerate("Link catch-up", null, ExperienceLevel.BEGINNER, LearningGoal.GENERAL_UNDERSTANDING)
+                .getShareToken();
+
+        // Only the roadmap created since then is unchecked.
+        LinkHealthService.CheckResult first = linkHealthService.checkStale(java.time.Duration.ofHours(24), 1000);
+        assertThat(first.checked()).isGreaterThanOrEqualTo(2);
+
+        mockMvc.perform(get("/api/roadmaps/public/{token}", shareToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.prerequisites[0].resources[0].reachable").value(true));
+
+        // Freshly checked links are left alone until they age past the cutoff...
+        assertThat(linkHealthService.checkStale(java.time.Duration.ofHours(24), 1000).checked()).isZero();
+
+        // ...and are picked up again once they do, within the batch limit.
+        assertThat(linkHealthService.checkStale(java.time.Duration.ZERO, 1).checked()).isEqualTo(1);
+    }
 }

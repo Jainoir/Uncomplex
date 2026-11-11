@@ -49,7 +49,9 @@ app:
     provider: ${AI_PROVIDER:mock}
     anthropic:
       api-key: ${ANTHROPIC_API_KEY:}
-      model: claude-opus-4-8
+      # Overridable so the model can be changed (or rolled back) from the host's
+      # environment without a code change or rebuild.
+      model: ${ANTHROPIC_MODEL:claude-opus-4-8}
       max-output-tokens: 16000
   generation:
     min-prerequisites: 4
@@ -70,6 +72,10 @@ app:
   link-health:
     enabled: ${LINK_HEALTH_ENABLED:true}
     cron: "0 0 4 * * *"
+    # The nightly slot is missed while a sleep-when-idle host is asleep, so stale and
+    # never-checked links are also probed in small batches after startup and while awake.
+    catch-up-initial-delay: ${LINK_HEALTH_CATCH_UP_INITIAL_DELAY:PT3M}
+    catch-up-interval: ${LINK_HEALTH_CATCH_UP_INTERVAL:PT20M}
   cors:
     # Comma-separated origins of the deployed frontend; localhost:5173 is the Vite dev server
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
